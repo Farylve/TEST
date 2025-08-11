@@ -1,0 +1,257 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      String   @default("USER")
+  isActive  Boolean  @default(true)
+  
+  // Email verification
+  isEmailVerified          Boolean   @default(false)
+  emailVerificationToken   String?   @unique
+  emailVerificationExpire  DateTime?
+  
+  // Password reset
+  resetPasswordToken  String?   @unique
+  resetPasswordExpire DateTime?
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
+  
+  // Relations
+  refreshTokens RefreshToken[]
+  posts         Post[]
+  comments      Comment[]
+  likes         Like[]
+  
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("refresh_tokens")
+}
+
+model Post {
+  id          String      @id @default(cuid())
+  title       String
+  content     String
+  excerpt     String?
+  slug        String      @unique
+  status      String      @default("DRAFT")
+  featured    Boolean     @default(false)
+  viewCount   Int         @default(0)
+  
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  
+  // Media
+  featuredImage String?
+  images        String?
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
+  
+  // Relations
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  categories PostCategory[]
+  tags       PostTag[]
+  comments   Comment[]
+  likes      Like[]
+  
+  @@map("posts")
+}
+
+model Category {
+  id          String @id @default(cuid())
+  name        String @unique
+  slug        String @unique
+  description String?
+  color       String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  posts PostCategory[]
+  
+  @@map("categories")
+}
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String @unique
+  slug  String @unique
+  color String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  posts PostTag[]
+  
+  @@map("tags")
+}
+
+model PostCategory {
+  id         String @id @default(cuid())
+  postId     String
+  categoryId String
+  
+  // Relations
+  post     Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  @@unique([postId, categoryId])
+  @@map("post_categories")
+}
+
+model PostTag {
+  id     String @id @default(cuid())
+  postId String
+  tagId  String
+  
+  // Relations
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@unique([postId, tagId])
+  @@map("post_tags")
+}
+
+model Comment {
+  id      String        @id @default(cuid())
+  content String
+  status  String        @default("PENDING")
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  // Self-referencing for replies
+  parentId String?
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("CommentReplies")
+  
+  @@map("comments")
+}
+
+model Like {
+  id String @id @default(cuid())
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  // Relations
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, postId])
+  @@map("likes")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  content     String?
+  slug        String   @unique
+  status      String   @default("DRAFT")
+  featured    Boolean  @default(false)
+  
+  // Project specific fields
+  demoUrl     String?
+  githubUrl   String?
+  technologies String?
+  
+  // Media
+  featuredImage String?
+  images        String?
+  
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
+  
+  @@map("projects")
+}
+
+model Contact {
+  id      String        @id @default(cuid())
+  name    String
+  email   String
+  subject String?
+  message String
+  status  String        @default("UNREAD")
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("contacts")
+}
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  type  String @default("STRING")
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("settings")
+}
+
+// Note: SQLite doesn't support enums, using strings instead
+// Valid values:
+// Role: "USER", "ADMIN"
+// PostStatus: "DRAFT", "PUBLISHED", "ARCHIVED"
+// CommentStatus: "PENDING", "APPROVED", "REJECTED"
+// ContactStatus: "UNREAD", "READ", "REPLIED"
+// SettingType: "STRING", "NUMBER", "BOOLEAN", "JSON"

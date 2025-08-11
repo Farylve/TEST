@@ -1,0 +1,14 @@
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main {
+  flex: 1;
+  padding: 20px;
+  width: 100%;
+}
+
+.mainExpanded {
+  /* Не нужен отдельный стиль, так как контент всегда занимает всю ширину */
+}
