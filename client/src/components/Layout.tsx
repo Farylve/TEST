@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
+import ServerStatus from './ServerStatus';
 import styles from './Layout.module.css';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -18,6 +19,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <main className={styles.main}>
         {children}
       </main>
+      <ServerStatus />
     </div>
   );
 }
