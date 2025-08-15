@@ -2,7 +2,9 @@ name: Deployment Workflow
 
 # Trigger this workflow on pushes to the specified branch
 on:
-    workflow_dispatch: # запуск только по кнопке
+    push:
+        branches:
+            - main
 
 jobs:
     deploy:
@@ -12,8 +14,25 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v2
 
+            - name: Setup Node.js
+              uses: actions/setup-node@v3
+              with:
+                  node-version: '18'
+                  cache: 'npm'
+
+            - name: Cache Next.js build
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.npm
+                      ${{ github.workspace }}/.next/cache
+                  key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+                  restore-keys: |
+                      ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+                      ${{ runner.os }}-nextjs-
+
             - name: Install dependencies
-              run: npm install
+              run: npm ci
 
             - name: Build Next.js app
               run: npm run build
