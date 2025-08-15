@@ -19,20 +19,23 @@ jobs:
               with:
                   node-version: "22"
                   cache: "npm"
-                  cache-dependency-path: "client/package-lock.json"
+                  cache-dependency-path: |
+                      client/package-lock.json
+                      server/package-lock.json
 
-            - name: Cache Next.js build
+            - name: Cache builds
               uses: actions/cache@v3
               with:
                   path: |
                       ~/.npm
                       ${{ github.workspace }}/client/.next/cache
-                  key: ${{ runner.os }}-nextjs-${{ hashFiles('client/package-lock.json') }}-${{ hashFiles('client/**/*.js', 'client/**/*.jsx', 'client/**/*.ts', 'client/**/*.tsx') }}
+                      ${{ github.workspace }}/server/dist
+                  key: ${{ runner.os }}-builds-${{ hashFiles('client/package-lock.json', 'server/package-lock.json') }}-${{ hashFiles('client/**/*.js', 'client/**/*.jsx', 'client/**/*.ts', 'client/**/*.tsx', 'server/**/*.ts') }}
                   restore-keys: |
-                      ${{ runner.os }}-nextjs-${{ hashFiles('client/package-lock.json') }}-
-                      ${{ runner.os }}-nextjs-
+                      ${{ runner.os }}-builds-${{ hashFiles('client/package-lock.json', 'server/package-lock.json') }}-
+                      ${{ runner.os }}-builds-
 
-            - name: Install dependencies
+            - name: Install client dependencies
               run: |
                   cd client
                   npm ci
@@ -40,6 +43,16 @@ jobs:
             - name: Build Next.js app
               run: |
                   cd client
+                  npm run build
+
+            - name: Install server dependencies
+              run: |
+                  cd server
+                  npm ci
+
+            - name: Build server app
+              run: |
+                  cd server
                   npm run build
 
             - name: SSH Deploy
@@ -55,17 +68,46 @@ jobs:
                       git stash push -m "Deploy stash" || true # Stash all local changes to avoid conflicts
                       git pull
                       ls -la # Debug: show directory contents
+                      # Deploy client
                       if [ -d "client" ]; then
-                          cd client # Navigate to client folder
+                          cd client
                           npm install
                           npm run build
                           pm2 delete nextjs 2>/dev/null || echo "No existing nextjs process found"
-                          pm2 start ecosystem.config.js # Start with fresh configuration from client folder
-                          pm2 status nextjs # Check the process status
-                          pm2 save # Save the PM2 process list
+                          pm2 start ecosystem.config.js
+                          cd ..
                       else
                           echo "Error: client directory not found in $(pwd)"
-                          echo "Available directories:"
-                          ls -la
                           exit 1
                       fi
+                      
+                      # Deploy server
+                       if [ -d "server" ]; then
+                           cd server
+                           # Create .env file for production
+                           cat > .env << EOF
+                       NODE_ENV=production
+                       PORT=3001
+                       DATABASE_URL=${{ secrets.DATABASE_URL }}
+                       JWT_SECRET=${{ secrets.JWT_SECRET }}
+                       JWT_EXPIRES_IN=7d
+                       JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+                       JWT_REFRESH_EXPIRES_IN=30d
+                       CLIENT_URL=${{ secrets.CLIENT_URL }}
+                       ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS }}
+                       BCRYPT_ROUNDS=12
+                       SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+                       LOG_LEVEL=info
+                       EOF
+                           npm install
+                           npm run build
+                           pm2 delete portfolio-server 2>/dev/null || echo "No existing portfolio-server process found"
+                           pm2 start ecosystem.config.js
+                           cd ..
+                       else
+                           echo "Error: server directory not found in $(pwd)"
+                           exit 1
+                       fi
+                      
+                      pm2 status # Check all processes status
+                      pm2 save # Save the PM2 process list
