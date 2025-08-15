@@ -33,6 +33,6 @@ jobs:
                       git pull
                       npm install
                       npm run build
-                      pm2 start ecosystem.config.js # Start the Next.js app using PM2 with config file
+                      pm2 reload nextjs || pm2 start ecosystem.config.js # Restart if exists, start if not
                       pm2 logs nextjs # Check the logs for any errors
                       pm2 save # Save the PM2 process list
