@@ -25,17 +25,21 @@ jobs:
               with:
                   path: |
                       ~/.npm
-                      ${{ github.workspace }}/.next/cache
-                  key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+                      ${{ github.workspace }}/client/.next/cache
+                  key: ${{ runner.os }}-nextjs-${{ hashFiles('client/package-lock.json') }}-${{ hashFiles('client/**/*.js', 'client/**/*.jsx', 'client/**/*.ts', 'client/**/*.tsx') }}
                   restore-keys: |
-                      ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+                      ${{ runner.os }}-nextjs-${{ hashFiles('client/package-lock.json') }}-
                       ${{ runner.os }}-nextjs-
 
             - name: Install dependencies
-              run: npm ci
+              run: |
+                  cd client
+                  npm ci
 
             - name: Build Next.js app
-              run: npm run build
+              run: |
+                  cd client
+                  npm run build
 
             - name: SSH Deploy
               # Use the 'appleboy/ssh-action' action for SSH deployment
@@ -48,8 +52,10 @@ jobs:
                   script: |
                       cd /var/www/nextjs # Specify the path to your app directory on the server
                       git pull
+                      cd client # Navigate to client folder
                       npm install
                       npm run build
+                      cd .. # Go back to root
                       pm2 delete nextjs || true # Delete existing process if exists
                       pm2 start ecosystem.config.js # Start with fresh configuration
                       pm2 status nextjs # Check the process status

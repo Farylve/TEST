@@ -3,7 +3,7 @@ module.exports = {
     name: 'nextjs',
     script: 'npx',
     args: 'next start -p 8888',
-    cwd: '/var/www/nextjs',
+    cwd: '/var/www/nextjs/client',
     instances: 1,
     autorestart: true,
     watch: false,
