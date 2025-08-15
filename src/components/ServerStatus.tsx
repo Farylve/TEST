@@ -45,7 +45,7 @@ export default function ServerStatus({ serverUrl = 'http://localhost:5000' }: Se
 
   const getStatusText = () => {
     if (isOnline === null) return 'Проверка...';
-    return isOnline ? 'Сервер онлайн' : 'Сервер офлайн';
+    return isOnline ? 'Сервер онлайн' : 'МАКС: ЛОХ 200 ок';
   };
 
   const getStatusClass = () => {
