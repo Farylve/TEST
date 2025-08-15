@@ -51,6 +51,6 @@ jobs:
                       npm install
                       npm run build
                       pm2 delete nextjs || true # Delete existing process if exists
-                      pm2 start ecosystem.config.js --no-daemon # Start with fresh configuration
-                      pm2 logs nextjs # Check the logs for any errors
+                      pm2 start ecosystem.config.js # Start with fresh configuration
+                      pm2 status nextjs # Check the process status
                       pm2 save # Save the PM2 process list
