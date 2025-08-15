@@ -39,7 +39,7 @@ jobs:
           ${{ runner.os }}-client-build-
 
     - name: Upload client build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: client-build
         path: |
@@ -98,7 +98,7 @@ jobs:
         EOF
 
     - name: Upload server build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: server-build
         path: |
@@ -115,13 +115,13 @@ jobs:
 
     steps:
     - name: Download client artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: client-build
         path: client/
 
     - name: Download server artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: server-build
         path: server/
