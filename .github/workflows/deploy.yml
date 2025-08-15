@@ -33,5 +33,6 @@ jobs:
                       git pull
                       npm install
                       npm run build
-                      pm2 restart nextjs # Replace with your PM2 service name
+                      pm2 start nextjs --name nextjs # Start the Next.js app using PM2
                       pm2 logs nextjs # Check the logs for any errors
+                      pm2 save # Save the PM2 process list
