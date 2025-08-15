@@ -1,113 +1,198 @@
-name: Deployment Workflow
+name: Deploy to VPS
 
-# Trigger this workflow on pushes to the specified branch
 on:
-    push:
-        branches:
-            - main
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-    deploy:
-        runs-on: ubuntu-latest
+  build-client:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
 
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v2
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: client/package-lock.json
 
-            - name: Setup Node.js
-              uses: actions/setup-node@v3
-              with:
-                  node-version: "22"
-                  cache: "npm"
-                  cache-dependency-path: |
-                      client/package-lock.json
-                      server/package-lock.json
+    - name: Install client dependencies
+      run: |
+        cd client
+        npm ci
 
-            - name: Cache builds
-              uses: actions/cache@v3
-              with:
-                  path: |
-                      ~/.npm
-                      ${{ github.workspace }}/client/.next/cache
-                      ${{ github.workspace }}/server/dist
-                  key: ${{ runner.os }}-builds-${{ hashFiles('client/package-lock.json', 'server/package-lock.json') }}-${{ hashFiles('client/**/*.js', 'client/**/*.jsx', 'client/**/*.ts', 'client/**/*.tsx', 'server/**/*.ts') }}
-                  restore-keys: |
-                      ${{ runner.os }}-builds-${{ hashFiles('client/package-lock.json', 'server/package-lock.json') }}-
-                      ${{ runner.os }}-builds-
+    - name: Build client
+      run: |
+        cd client
+        npm run build
 
-            - name: Install client dependencies
-              run: |
-                  cd client
-                  npm ci
+    - name: Cache client build
+      uses: actions/cache@v3
+      with:
+        path: client/.next
+        key: ${{ runner.os }}-client-build-${{ hashFiles('client/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-client-build-
 
-            - name: Build Next.js app
-              run: |
-                  cd client
-                  npm run build
+    - name: Upload client build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: client-build
+        path: |
+          client/.next
+          client/package.json
+          client/package-lock.json
+          client/ecosystem.config.js
 
-            - name: Install server dependencies
-              run: |
-                  cd server
-                  npm ci
+  build-server:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
 
-            - name: Build server app
-              run: |
-                  cd server
-                  npm run build
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: server/package-lock.json
 
-            - name: SSH Deploy
-              # Use the 'appleboy/ssh-action' action for SSH deployment
-              uses: appleboy/ssh-action@master
-              with:
-                  host: ${{ secrets.HOST }} # Your server's IP address
-                  username: ${{ secrets.USERNAME }} # Your server's username
-                  key: ${{ secrets.SSH_PRIVATE_KEY }} # Your server's SSH private key
-                  passphrase: ${{ secrets.SSH_PASSPHRASE }}
-                  script: |
-                      cd /var/www/nextjs # Specify the path to your app directory on the server
-                      git stash push -m "Deploy stash" || true # Stash all local changes to avoid conflicts
-                      git pull
-                      ls -la # Debug: show directory contents
-                      # Deploy client
-                      if [ -d "client" ]; then
-                          cd client
-                          npm install
-                          npm run build
-                          pm2 delete nextjs 2>/dev/null || echo "No existing nextjs process found"
-                          pm2 start ecosystem.config.js
-                          cd ..
-                      else
-                          echo "Error: client directory not found in $(pwd)"
-                          exit 1
-                      fi
-                      
-                      # Deploy server
-                       if [ -d "server" ]; then
-                           cd server
-                           # Create .env file for production
-                           cat > .env << EOF
-                       NODE_ENV=production
-                       PORT=3001
-                       DATABASE_URL=${{ secrets.DATABASE_URL }}
-                       JWT_SECRET=${{ secrets.JWT_SECRET }}
-                       JWT_EXPIRES_IN=7d
-                       JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
-                       JWT_REFRESH_EXPIRES_IN=30d
-                       CLIENT_URL=${{ secrets.CLIENT_URL }}
-                       ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS }}
-                       BCRYPT_ROUNDS=12
-                       SESSION_SECRET=${{ secrets.SESSION_SECRET }}
-                       LOG_LEVEL=info
-                       EOF
-                           npm install
-                           npm run build
-                           pm2 delete portfolio-server 2>/dev/null || echo "No existing portfolio-server process found"
-                           pm2 start ecosystem.config.js
-                           cd ..
-                       else
-                           echo "Error: server directory not found in $(pwd)"
-                           exit 1
-                       fi
-                      
-                      pm2 status # Check all processes status
-                      pm2 save # Save the PM2 process list
+    - name: Install server dependencies
+      run: |
+        cd server
+        npm ci
+
+    - name: Build server
+      run: |
+        cd server
+        npm run build
+
+    - name: Cache server build
+      uses: actions/cache@v3
+      with:
+        path: server/dist
+        key: ${{ runner.os }}-server-build-${{ hashFiles('server/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-server-build-
+
+    - name: Create server .env file
+      run: |
+        cd server
+        cat > .env << EOF
+        NODE_ENV=production
+        PORT=3001
+        DATABASE_URL=${{ secrets.DATABASE_URL }}
+        JWT_SECRET=${{ secrets.JWT_SECRET }}
+        JWT_EXPIRES_IN=15m
+        JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+        JWT_REFRESH_EXPIRES_IN=7d
+        CLIENT_URL=${{ secrets.CLIENT_URL }}
+        ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS }}
+        BCRYPT_ROUNDS=12
+        SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+        LOG_LEVEL=info
+        EOF
+
+    - name: Upload server build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: server-build
+        path: |
+          server/dist
+          server/package.json
+          server/package-lock.json
+          server/prisma
+          server/.env
+          server/ecosystem.config.js
+
+  deploy:
+    needs: [build-client, build-server]
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download client artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: client-build
+        path: client/
+
+    - name: Download server artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: server-build
+        path: server/
+
+    - name: Create deployment archive
+      run: |
+        tar -czf deployment.tar.gz client/ server/
+
+    - name: SSH Deploy
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        passphrase: ${{ secrets.SSH_PASSPHRASE }}
+        script: |
+          cd /var/www/nextjs
+          # Backup current deployment
+          if [ -d "current" ]; then
+            mv current backup-$(date +%Y%m%d-%H%M%S) || true
+          fi
+          mkdir -p current
+
+    - name: Copy files to server
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        passphrase: ${{ secrets.SSH_PASSPHRASE }}
+        source: "deployment.tar.gz"
+        target: "/var/www/nextjs/"
+
+    - name: Extract and deploy
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        passphrase: ${{ secrets.SSH_PASSPHRASE }}
+        script: |
+          cd /var/www/nextjs
+          tar -xzf deployment.tar.gz -C current/
+          
+          # Deploy client
+          if [ -d "current/client" ]; then
+            cd current/client
+            npm install --production
+            pm2 delete nextjs 2>/dev/null || echo "No existing nextjs process found"
+            pm2 start ecosystem.config.js
+            cd ../..
+          else
+            echo "Client directory not found"
+          fi
+          
+          # Deploy server
+          if [ -d "current/server" ]; then
+            cd current/server
+            npm install --production
+            npx prisma migrate deploy
+            npx prisma db seed
+            pm2 delete portfolio-server 2>/dev/null || echo "No existing portfolio-server process found"
+            pm2 start ecosystem.config.js
+            cd ../..
+          else
+            echo "Server directory not found"
+          fi
+          
+          pm2 save
+          pm2 startup
+          
+          # Cleanup
+          rm -f deployment.tar.gz
+          echo "Deployment completed successfully!"
