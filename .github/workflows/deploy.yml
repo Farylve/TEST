@@ -29,9 +29,9 @@ jobs:
                   key: ${{ secrets.SSH_PRIVATE_KEY }} # Your server's SSH private key
                   passphrase: ${{ secrets.SSH_PASSPHRASE }}
                   script: |
-                      cd /var/www/nextjs-app # Specify the path to your app directory on the server
+                      cd /var/www/nextjs # Specify the path to your app directory on the server
                       git pull
                       npm install
                       npm run build
-                      pm2 restart nextjs-app # Replace with your PM2 service name
-                      pm2 logs nextjs-app # Check the logs for any errors
+                      pm2 restart nextjs # Replace with your PM2 service name
+                      pm2 logs nextjs # Check the logs for any errors
