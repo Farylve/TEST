@@ -1,7 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import { logger } from '../utils/logger';
 
-export const notFound = (req: Request, res: Response, next: NextFunction): void => {
+export const notFound = (req: Request, res: Response): void => {
   logger.warn(`Route not found: ${req.method} ${req.originalUrl}`, {
     ip: req.ip,
     userAgent: req.get('User-Agent'),

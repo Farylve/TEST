@@ -1,5 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-import { execSync } from 'child_process';
+import { PrismaClient, Prisma } from '@prisma/client';
 import dotenv from 'dotenv';
 
 // Load test environment variables
@@ -26,7 +25,7 @@ afterAll(async () => {
 afterEach(async () => {
   // Clean up test data
   const tablenames = await prisma.$queryRaw<Array<{ tablename: string }>>(
-    `SELECT tablename FROM pg_tables WHERE schemaname='public'`
+    Prisma.sql`SELECT tablename FROM pg_tables WHERE schemaname='public'`
   );
 
   const tables = tablenames
