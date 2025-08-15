@@ -33,6 +33,15 @@ jobs:
                       git pull
                       npm install
                       npm run build
+                      # Check if required files exist before starting PM2
+                      if [ ! -f "ecosystem.config.js" ]; then
+                          echo "Error: ecosystem.config.js not found!"
+                          exit 1
+                      fi
+                      if [ ! -d ".next" ]; then
+                          echo "Error: .next build directory not found!"
+                          exit 1
+                      fi
                       pm2 reload nextjs || pm2 start ecosystem.config.js # Restart if exists, start if not
                       pm2 logs nextjs # Check the logs for any errors
                       pm2 save # Save the PM2 process list

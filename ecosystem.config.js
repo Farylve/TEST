@@ -1,8 +1,8 @@
 module.exports = {
   apps: [{
     name: 'nextjs',
-    script: 'npm',
-    args: 'start',
+    script: 'npx',
+    args: 'next start -p 8888',
     cwd: '/var/www/nextjs',
     instances: 1,
     autorestart: true,

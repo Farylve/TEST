@@ -27,7 +27,7 @@ export default function ServerStatus({ serverUrl = 'http://localhost:5000' }: Se
       } else {
         setIsOnline(false);
       }
-    } catch (error) {
+    } catch {
       setIsOnline(false);
     }
     setLastChecked(new Date());
@@ -41,7 +41,7 @@ export default function ServerStatus({ serverUrl = 'http://localhost:5000' }: Se
     const interval = setInterval(checkServerStatus, 30000);
 
     return () => clearInterval(interval);
-  }, [serverUrl]);
+  }, [serverUrl, checkServerStatus]);
 
   const getStatusText = () => {
     if (isOnline === null) return 'Проверка...';

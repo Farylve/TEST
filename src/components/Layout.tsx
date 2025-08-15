@@ -1,16 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React from 'react';
 import Sidebar from './Sidebar';
 import ServerStatus from './ServerStatus';
 import styles from './Layout.module.css';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
   // Функция для отслеживания состояния сайдбара
   const handleSidebarToggle = (isOpen: boolean) => {
-    setSidebarOpen(isOpen);
+    // Логика обработки состояния сайдбара
   };
 
   return (
