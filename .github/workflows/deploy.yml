@@ -52,8 +52,9 @@ jobs:
                   passphrase: ${{ secrets.SSH_PASSPHRASE }}
                   script: |
                       cd /var/www/nextjs # Specify the path to your app directory on the server
-                      git stash push -m "Deploy stash" -- client/package-lock.json || true # Stash package-lock.json to avoid conflicts
+                      git stash push -m "Deploy stash" || true # Stash all local changes to avoid conflicts
                       git pull
+                      ls -la # Debug: show directory contents
                       if [ -d "client" ]; then
                           cd client # Navigate to client folder
                           npm install
@@ -63,6 +64,8 @@ jobs:
                           pm2 status nextjs # Check the process status
                           pm2 save # Save the PM2 process list
                       else
-                          echo "Error: client directory not found"
+                          echo "Error: client directory not found in $(pwd)"
+                          echo "Available directories:"
+                          ls -la
                           exit 1
                       fi
