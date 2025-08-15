@@ -24,9 +24,7 @@ afterAll(async () => {
 // Clean up after each test
 afterEach(async () => {
   // Clean up test data
-  const tablenames = await prisma.$queryRaw<Array<{ tablename: string }>>(
-    Prisma.sql`SELECT tablename FROM pg_tables WHERE schemaname='public'`
-  );
+  const tablenames = await prisma.$queryRaw<Array<{ tablename: string }>>`SELECT tablename FROM pg_tables WHERE schemaname='public'`;
 
   const tables = tablenames
     .map(({ tablename }) => tablename)
