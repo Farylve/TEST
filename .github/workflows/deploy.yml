@@ -17,8 +17,8 @@ jobs:
             - name: Setup Node.js
               uses: actions/setup-node@v3
               with:
-                  node-version: '18'
-                  cache: 'npm'
+                  node-version: "18"
+                  cache: "npm"
 
             - name: Cache Next.js build
               uses: actions/cache@v3
@@ -51,6 +51,6 @@ jobs:
                       npm install
                       npm run build
                       pm2 delete nextjs || true # Delete existing process if exists
-                      pm2 start ecosystem.config.js # Start with fresh configuration
+                      pm2 start ecosystem.config.js --no-daemon # Start with fresh configuration
                       pm2 logs nextjs # Check the logs for any errors
                       pm2 save # Save the PM2 process list
