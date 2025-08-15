@@ -1,4 +1,4 @@
-import { PrismaClient, Role } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -16,7 +16,7 @@ async function main() {
       password: adminPassword,
       firstName: 'Admin',
       lastName: 'User',
-      role: Role.ADMIN,
+      role: 'ADMIN',
       isEmailVerified: true,
       isActive: true,
     },
@@ -34,7 +34,7 @@ async function main() {
       password: userPassword,
       firstName: 'Demo',
       lastName: 'User',
-      role: Role.USER,
+      role: 'USER',
       isEmailVerified: true,
       isActive: true,
     },
@@ -115,7 +115,7 @@ async function main() {
       featured: true,
       demoUrl: 'https://demo-ecommerce.example.com',
       githubUrl: 'https://github.com/username/ecommerce-platform',
-      technologies: ['Next.js', 'Node.js', 'PostgreSQL', 'Stripe', 'Tailwind CSS'],
+      technologies: 'Next.js, Node.js, PostgreSQL, Stripe, Tailwind CSS',
       metaTitle: 'E-commerce Platform - Full Stack Project',
       metaDescription: 'Modern e-commerce platform built with Next.js, Node.js, and PostgreSQL',
       publishedAt: new Date(),
@@ -129,7 +129,7 @@ async function main() {
       featured: false,
       demoUrl: 'https://demo-tasks.example.com',
       githubUrl: 'https://github.com/username/task-management',
-      technologies: ['React', 'Express', 'Socket.io', 'MongoDB', 'Material-UI'],
+      technologies: 'React, Express, Socket.io, MongoDB, Material-UI',
       metaTitle: 'Task Management App - Collaborative Tool',
       metaDescription: 'Real-time collaborative task management application',
       publishedAt: new Date(),
@@ -143,7 +143,7 @@ async function main() {
       featured: false,
       demoUrl: 'https://demo-weather.example.com',
       githubUrl: 'https://github.com/username/weather-dashboard',
-      technologies: ['Vue.js', 'Chart.js', 'OpenWeather API', 'Vuetify'],
+      technologies: 'Vue.js, Chart.js, OpenWeather API, Vuetify',
       metaTitle: 'Weather Dashboard - Beautiful Weather App',
       metaDescription: 'Elegant weather dashboard with forecasts and analytics',
     },

@@ -1,5 +1,4 @@
 import http from 'http';
-import { config } from './config/database';
 
 const options = {
   host: 'localhost',
