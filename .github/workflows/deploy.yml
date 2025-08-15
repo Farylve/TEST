@@ -2,9 +2,7 @@ name: Deployment Workflow
 
 # Trigger this workflow on pushes to the specified branch
 on:
-    push:
-        branches:
-            - main
+    workflow_dispatch: # запуск только по кнопке
 
 jobs:
     deploy:
