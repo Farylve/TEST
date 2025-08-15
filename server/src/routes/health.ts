@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
+import { databaseService } from '../services/database';
+import { handleDatabaseReconnect } from '../middleware/databaseCheck';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 interface HealthStatus {
   status: 'healthy' | 'unhealthy';
@@ -31,13 +31,16 @@ router.get('/', async (_req: Request, res: Response) => {
     const startTime = Date.now();
     
     // Check database connection
+    const isDbConnected = await databaseService.checkConnection();
+    const dbStatus = databaseService.getConnectionStatus();
+    
     let databaseStatus: 'connected' | 'disconnected' | 'error' = 'disconnected';
-    try {
-      await prisma.$queryRaw`SELECT 1`;
+    if (isDbConnected) {
       databaseStatus = 'connected';
-    } catch (error) {
-      logger.error('Database health check failed:', error);
+    } else if (dbStatus.connectionAttempts >= dbStatus.maxRetries) {
       databaseStatus = 'error';
+    } else {
+      databaseStatus = 'disconnected';
     }
 
     // Get memory usage
@@ -103,13 +106,24 @@ router.get('/', async (_req: Request, res: Response) => {
 router.get('/ready', async (_req: Request, res: Response) => {
   try {
     // Check if all critical services are ready
-    await prisma.$queryRaw`SELECT 1`;
+    const isDbConnected = await databaseService.checkConnection();
     
-    res.status(200).json({
-      success: true,
-      message: 'Service is ready',
-      timestamp: new Date().toISOString(),
-    });
+    if (isDbConnected) {
+      res.status(200).json({
+        success: true,
+        message: 'Service is ready',
+        timestamp: new Date().toISOString(),
+        database: 'connected'
+      });
+    } else {
+      // Service is ready but database is not available
+      res.status(200).json({
+        success: true,
+        message: 'Service is ready (limited functionality - database unavailable)',
+        timestamp: new Date().toISOString(),
+        database: 'disconnected'
+      });
+    }
   } catch (error) {
     logger.error('Readiness check failed:', error);
     
@@ -117,6 +131,7 @@ router.get('/ready', async (_req: Request, res: Response) => {
       success: false,
       message: 'Service is not ready',
       timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -135,5 +150,12 @@ router.get('/live', (_req: Request, res: Response) => {
     uptime: process.uptime(),
   });
 });
+
+/**
+ * @route POST /api/health/reconnect
+ * @desc Force database reconnection
+ * @access Public (should be protected in production)
+ */
+router.post('/reconnect', handleDatabaseReconnect);
 
 export default router;

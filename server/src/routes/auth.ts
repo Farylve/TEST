@@ -14,6 +14,7 @@ import {
 } from '../controllers/authController';
 import { authenticate } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
+import { requireDatabase } from '../middleware/databaseCheck';
 
 const router = Router();
 
@@ -69,14 +70,14 @@ const resetPasswordValidation = [
     .withMessage('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'),
 ];
 
-// Routes
-router.post('/register', registerValidation, validateRequest, register);
-router.post('/login', loginValidation, validateRequest, login);
-router.post('/logout', authenticate, logout);
-router.post('/refresh-token', refreshToken);
-router.post('/forgot-password', forgotPasswordValidation, validateRequest, forgotPassword);
-router.post('/reset-password', resetPasswordValidation, validateRequest, resetPassword);
-router.get('/verify-email/:token', verifyEmail);
-router.post('/resend-verification', authenticate, resendVerification);
+// Routes - all auth operations require database
+router.post('/register', requireDatabase, registerValidation, validateRequest, register);
+router.post('/login', requireDatabase, loginValidation, validateRequest, login);
+router.post('/logout', requireDatabase, authenticate, logout);
+router.post('/refresh-token', requireDatabase, refreshToken);
+router.post('/forgot-password', requireDatabase, forgotPasswordValidation, validateRequest, forgotPassword);
+router.post('/reset-password', requireDatabase, resetPasswordValidation, validateRequest, resetPassword);
+router.get('/verify-email/:token', requireDatabase, verifyEmail);
+router.post('/resend-verification', requireDatabase, authenticate, resendVerification);
 
 export default router;

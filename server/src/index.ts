@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { app } from './app';
 import { logger } from './utils/logger';
-import { prisma } from './app';
+import { databaseService } from './services/database';
 
 // Load environment variables
 dotenv.config();
@@ -9,22 +9,15 @@ dotenv.config();
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOSTNAME || 'localhost';
 
-// Database connection check
-async function connectDatabase() {
-  try {
-    await prisma.$connect();
-    logger.info('✅ Database connected successfully');
-  } catch (error) {
-    logger.error('❌ Database connection failed:', error);
-    process.exit(1);
-  }
-}
-
 // Start server
 async function startServer() {
   try {
-    // Connect to database
-    await connectDatabase();
+    // Try to connect to database (non-blocking)
+    const dbConnected = await databaseService.connect();
+    
+    if (!dbConnected) {
+      logger.warn('⚠️  Server starting without database connection. Some features may be limited.');
+    }
 
     // Start HTTP server
     const server = app.listen(PORT, () => {
@@ -42,7 +35,7 @@ async function startServer() {
         logger.info('HTTP server closed');
         
         try {
-          await prisma.$disconnect();
+          await databaseService.disconnect();
           logger.info('Database connection closed');
           process.exit(0);
         } catch (error) {

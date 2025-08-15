@@ -12,6 +12,7 @@ import {
 } from '../controllers/userController';
 import { authorize } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
+import { requireDatabase } from '../middleware/databaseCheck';
 
 const router = Router();
 
@@ -80,16 +81,16 @@ const updateUserValidation = [
     .withMessage('isActive must be a boolean'),
 ];
 
-// User profile routes
-router.get('/profile', getProfile);
-router.put('/profile', updateProfileValidation, validateRequest, updateProfile);
-router.put('/change-password', changePasswordValidation, validateRequest, changePassword);
-router.delete('/account', deleteAccount);
+// User profile routes - all require database
+router.get('/profile', requireDatabase, getProfile);
+router.put('/profile', requireDatabase, updateProfileValidation, validateRequest, updateProfile);
+router.put('/change-password', requireDatabase, changePasswordValidation, validateRequest, changePassword);
+router.delete('/account', requireDatabase, deleteAccount);
 
-// Admin routes
-router.get('/', authorize('ADMIN'), getAllUsers);
-router.get('/:id', authorize('ADMIN'), userIdValidation, validateRequest, getUserById);
-router.put('/:id', authorize('ADMIN'), updateUserValidation, validateRequest, updateUser);
-router.delete('/:id', authorize('ADMIN'), userIdValidation, validateRequest, deleteUser);
+// Admin routes - all require database
+router.get('/', requireDatabase, authorize('ADMIN'), getAllUsers);
+router.get('/:id', requireDatabase, authorize('ADMIN'), userIdValidation, validateRequest, getUserById);
+router.put('/:id', requireDatabase, authorize('ADMIN'), updateUserValidation, validateRequest, updateUser);
+router.delete('/:id', requireDatabase, authorize('ADMIN'), userIdValidation, validateRequest, deleteUser);
 
 export default router;
