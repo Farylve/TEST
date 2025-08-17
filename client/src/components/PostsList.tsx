@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Post, PostsResponse, PostFilters } from '../types/post';
 import PostCard from './PostCard';
 import styles from './PostsList.module.css';
@@ -29,7 +29,7 @@ const PostsList: React.FC<PostsListProps> = ({ initialFilters = {} }) => {
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
-  const fetchPosts = async (currentFilters: PostFilters) => {
+  const fetchPosts = useCallback(async (currentFilters: PostFilters) => {
     try {
       setLoading(true);
       setError(null);
@@ -62,11 +62,11 @@ const PostsList: React.FC<PostsListProps> = ({ initialFilters = {} }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_BASE_URL]);
 
   useEffect(() => {
     fetchPosts(filters);
-  }, [filters]);
+  }, [filters, fetchPosts]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,7 +145,7 @@ const PostsList: React.FC<PostsListProps> = ({ initialFilters = {} }) => {
             <span>Активные фильтры:</span>
             {filters.search && (
               <span className={styles.filterTag}>
-                Поиск: "{filters.search}"
+                Поиск: &ldquo;{filters.search}&rdquo;
               </span>
             )}
             {filters.category && (
