@@ -239,6 +239,17 @@ docker compose --profile production up -d
 
 ## Troubleshooting
 
+### Проблемы с GitHub Actions:
+```bash
+# Если GitHub Actions не может найти Dockerfile:
+# 1. Проверьте, что файлы не игнорируются .gitignore
+# 2. Убедитесь, что Dockerfile находится в правильной директории
+# 3. Проверьте, что файлы добавлены в git:
+git add server/Dockerfile server/.dockerignore client/Dockerfile client/.dockerignore
+git commit -m "Добавить Docker файлы"
+git push origin main
+```
+
 ### Проблемы с подключением к базе данных:
 ```bash
 # Проверьте статус PostgreSQL
