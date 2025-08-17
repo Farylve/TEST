@@ -239,16 +239,62 @@ docker compose --profile production up -d
 
 ## Troubleshooting
 
-### Проблемы с GitHub Actions:
-```bash
-# Если GitHub Actions не может найти Dockerfile:
-# 1. Проверьте, что файлы не игнорируются .gitignore
-# 2. Убедитесь, что Dockerfile находится в правильной директории
-# 3. Проверьте, что файлы добавлены в git:
-git add server/Dockerfile server/.dockerignore client/Dockerfile client/.dockerignore
-git commit -m "Добавить Docker файлы"
-git push origin main
-```
+### Ошибка "Dockerfile not found"
+
+Если GitHub Actions не может найти Dockerfile:
+
+1. **Проверьте .gitignore файлы:**
+   ```bash
+   # Проверьте корневой .gitignore
+   cat .gitignore
+   
+   # Проверьте .gitignore в директории server
+   cat server/.gitignore
+   ```
+
+2. **Убедитесь, что Docker-файлы не игнорируются:**
+   - Закомментируйте или удалите строки, игнорирующие `Dockerfile`, `docker-compose.yml`, `.dockerignore`
+   - Пример проблемных строк в `server/.gitignore`:
+     ```
+     # Dockerfile
+     # docker-compose.yml
+     # .dockerignore
+     ```
+
+3. **Добавьте файлы в Git:**
+   ```bash
+   git add server/Dockerfile server/.dockerignore
+   git commit -m "Добавить Docker файлы для сервера"
+   git push origin main
+   ```
+
+4. **Проверьте правильность пути в workflow:**
+   - Убедитесь, что путь к Dockerfile в `.github/workflows/deploy.yml` корректен
+   - Для сервера: `./server/Dockerfile`
+   - Для клиента: `./client/Dockerfile`
+
+### Ошибка "public directory not found" в клиенте
+
+Если Docker-сборка клиента не может найти директорию `/app/public`:
+
+1. **Проблема:** В Next.js 13+ с App Router директория `public` не всегда создается автоматически
+
+2. **Решение:** Обновите `client/Dockerfile`:
+   ```dockerfile
+   # Вместо:
+   COPY --from=builder /app/public ./public
+   
+   # Используйте:
+   RUN mkdir -p ./public
+   COPY --from=builder /app/.next/static ./.next/static
+   ```
+
+3. **Дополнительно:** Убедитесь, что телеметрия Next.js отключена:
+   - В `client/next.config.js` НЕ используйте `telemetry: false`
+   - Вместо этого в `client/Dockerfile` добавьте:
+     ```dockerfile
+     ENV NEXT_TELEMETRY_DISABLED 1
+     ```
 
 ### Проблемы с подключением к базе данных:
 ```bash
@@ -266,6 +312,9 @@ docker builder prune -f
 
 # Пересоберите образы
 docker compose build --no-cache
+
+# Если проблемы с зависимостями Node.js
+docker compose build --no-cache --pull
 ```
 
 ### Проблемы с портами:
