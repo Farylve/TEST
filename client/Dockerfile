@@ -31,15 +31,17 @@ FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-# Uncomment the following line in case you want to disable telemetry during runtime.
-# ENV NEXT_TELEMETRY_DISABLED 1
+# Disable telemetry
+ENV NEXT_TELEMETRY_DISABLED 1
 
 # Create a non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Copy built application
-COPY --from=builder /app/public ./public
+# Create public directory if it doesn't exist and copy if available
+RUN mkdir -p ./public
+COPY --from=builder /app/.next/static ./.next/static
 
 # Set the correct permission for prerender cache
 RUN mkdir .next

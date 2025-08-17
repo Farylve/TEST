@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import styles from './ServerStatus.module.css';
 
 interface ServerStatusProps {
@@ -11,7 +11,7 @@ export default function ServerStatus({ serverUrl = 'http://localhost:5000' }: Se
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
 
-  const checkServerStatus = async () => {
+  const checkServerStatus = useCallback(async () => {
     try {
       const response = await fetch(`${serverUrl}/api/health`, {
         method: 'GET',
@@ -31,7 +31,7 @@ export default function ServerStatus({ serverUrl = 'http://localhost:5000' }: Se
       setIsOnline(false);
     }
     setLastChecked(new Date());
-  };
+  }, [serverUrl]);
 
   useEffect(() => {
     // Проверяем статус при загрузке компонента

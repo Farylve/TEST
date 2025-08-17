@@ -6,8 +6,6 @@ const nextConfig = {
     workerThreads: false,
     cpus: 1
   },
-  // Disable telemetry
-  telemetry: false,
   // Configure API routes
   async rewrites() {
     return [
