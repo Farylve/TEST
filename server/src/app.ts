@@ -11,6 +11,7 @@ import { databaseService } from './services/database';
 // Import routes
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
+import postRoutes from './routes/posts';
 import healthRoutes from './routes/health';
 
 // Export database service for backward compatibility
@@ -90,6 +91,7 @@ app.use('/api/health', healthRoutes);
 const apiVersion = process.env.API_VERSION || 'v1';
 app.use(`/api/auth`, authRoutes);
 app.use(`/api/users`, userRoutes);
+app.use(`/api/posts`, postRoutes);
 
 // Static files serving
 app.use('/uploads', express.static('uploads'));

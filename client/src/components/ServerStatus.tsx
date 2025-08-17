@@ -10,6 +10,7 @@ interface ServerStatusProps {
 export default function ServerStatus({ serverUrl = 'http://localhost:5000' }: ServerStatusProps) {
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [isClient, setIsClient] = useState(false);
 
   const checkServerStatus = useCallback(async () => {
     try {
@@ -34,6 +35,9 @@ export default function ServerStatus({ serverUrl = 'http://localhost:5000' }: Se
   }, [serverUrl]);
 
   useEffect(() => {
+    // Устанавливаем флаг клиента для избежания проблем с гидратацией
+    setIsClient(true);
+    
     // Проверяем статус при загрузке компонента
     checkServerStatus();
 
@@ -59,7 +63,7 @@ export default function ServerStatus({ serverUrl = 'http://localhost:5000' }: Se
         <div className={styles.dot}></div>
         <span className={styles.text}>{getStatusText()}</span>
       </div>
-      {lastChecked && (
+      {isClient && lastChecked && (
         <div className={styles.lastChecked}>
           Последняя проверка: {lastChecked.toLocaleTimeString()}
         </div>

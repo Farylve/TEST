@@ -45,29 +45,23 @@ async function main() {
   // Create categories
   const categories = [
     {
-      name: 'Web Development',
-      slug: 'web-development',
-      description: 'Articles about web development technologies and practices',
-      color: '#3B82F6',
+      name: 'Tech',
+      slug: 'tech',
+      description: 'Technology and programming posts',
+      color: '#3B82F6'
     },
     {
-      name: 'Mobile Development',
-      slug: 'mobile-development',
-      description: 'Mobile app development tutorials and insights',
-      color: '#10B981',
+      name: 'Lifestyle',
+      slug: 'lifestyle', 
+      description: 'Daily life and thoughts',
+      color: '#10B981'
     },
     {
-      name: 'DevOps',
-      slug: 'devops',
-      description: 'DevOps practices, tools, and methodologies',
-      color: '#F59E0B',
-    },
-    {
-      name: 'Design',
-      slug: 'design',
-      description: 'UI/UX design principles and trends',
-      color: '#EF4444',
-    },
+      name: 'News',
+      slug: 'news',
+      description: 'Latest news and updates',
+      color: '#F59E0B'
+    }
   ];
 
   for (const category of categories) {
@@ -82,16 +76,14 @@ async function main() {
 
   // Create tags
   const tags = [
-    { name: 'React', slug: 'react', color: '#61DAFB' },
-    { name: 'TypeScript', slug: 'typescript', color: '#3178C6' },
-    { name: 'Node.js', slug: 'nodejs', color: '#339933' },
-    { name: 'Next.js', slug: 'nextjs', color: '#000000' },
-    { name: 'Express', slug: 'express', color: '#000000' },
-    { name: 'PostgreSQL', slug: 'postgresql', color: '#336791' },
-    { name: 'Prisma', slug: 'prisma', color: '#2D3748' },
-    { name: 'Docker', slug: 'docker', color: '#2496ED' },
-    { name: 'AWS', slug: 'aws', color: '#FF9900' },
-    { name: 'JavaScript', slug: 'javascript', color: '#F7DF1E' },
+    { name: 'coding', slug: 'coding', color: '#61DAFB' },
+    { name: 'motivation', slug: 'motivation', color: '#10B981' },
+    { name: 'javascript', slug: 'javascript', color: '#F7DF1E' },
+    { name: 'react', slug: 'react', color: '#61DAFB' },
+    { name: 'ai', slug: 'ai', color: '#8B5CF6' },
+    { name: 'startup', slug: 'startup', color: '#F59E0B' },
+    { name: 'productivity', slug: 'productivity', color: '#EF4444' },
+    { name: 'learning', slug: 'learning', color: '#3B82F6' },
   ];
 
   for (const tag of tags) {
@@ -104,60 +96,166 @@ async function main() {
 
   console.log('✅ Tags created');
 
-  // Create sample projects
-  const projects = [
+  // Create sample posts
+  const posts = [
     {
-      title: 'E-commerce Platform',
-      description: 'Full-stack e-commerce platform built with Next.js and Node.js',
-      content: 'A comprehensive e-commerce solution featuring user authentication, product catalog, shopping cart, payment integration, and admin dashboard.',
-      slug: 'ecommerce-platform',
+      title: 'Just shipped a new feature! 🚀',
+      content: 'Spent the weekend building a real-time chat feature with WebSockets. The feeling when everything just clicks is unmatched! 💻✨ #coding #javascript',
+      slug: 'shipped-new-feature',
       status: 'PUBLISHED' as const,
-      featured: true,
-      demoUrl: 'https://demo-ecommerce.example.com',
-      githubUrl: 'https://github.com/username/ecommerce-platform',
-      technologies: 'Next.js, Node.js, PostgreSQL, Stripe, Tailwind CSS',
-      metaTitle: 'E-commerce Platform - Full Stack Project',
-      metaDescription: 'Modern e-commerce platform built with Next.js, Node.js, and PostgreSQL',
-      publishedAt: new Date(),
+      authorId: user.id,
+      publishedAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
     },
     {
-      title: 'Task Management App',
-      description: 'Collaborative task management application with real-time updates',
-      content: 'A productivity app that helps teams manage tasks, track progress, and collaborate effectively with real-time synchronization.',
-      slug: 'task-management-app',
+      title: 'Coffee and code ☕',
+      content: 'Monday morning vibes: fresh coffee, clean code, and endless possibilities. What\'s everyone working on today? 🤔',
+      slug: 'coffee-and-code',
       status: 'PUBLISHED' as const,
-      featured: false,
-      demoUrl: 'https://demo-tasks.example.com',
-      githubUrl: 'https://github.com/username/task-management',
-      technologies: 'React, Express, Socket.io, MongoDB, Material-UI',
-      metaTitle: 'Task Management App - Collaborative Tool',
-      metaDescription: 'Real-time collaborative task management application',
-      publishedAt: new Date(),
+      authorId: admin.id,
+      publishedAt: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
     },
     {
-      title: 'Weather Dashboard',
-      description: 'Beautiful weather dashboard with forecasts and analytics',
-      content: 'An elegant weather application providing current conditions, forecasts, and weather analytics with beautiful visualizations.',
-      slug: 'weather-dashboard',
-      status: 'DRAFT' as const,
-      featured: false,
-      demoUrl: 'https://demo-weather.example.com',
-      githubUrl: 'https://github.com/username/weather-dashboard',
-      technologies: 'Vue.js, Chart.js, OpenWeather API, Vuetify',
-      metaTitle: 'Weather Dashboard - Beautiful Weather App',
-      metaDescription: 'Elegant weather dashboard with forecasts and analytics',
+      title: 'React 19 is amazing! 🔥',
+      content: 'The new React compiler is a game changer. No more manual memoization! Who else is excited about the future of React? #react #webdev',
+      slug: 'react-19-amazing',
+      status: 'PUBLISHED' as const,
+      authorId: user.id,
+      publishedAt: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
+    },
+    {
+      title: 'AI is everywhere now 🤖',
+      content: 'From coding assistants to design tools, AI is transforming how we work. Embracing it rather than fighting it seems like the smart move. Thoughts? #ai #future',
+      slug: 'ai-everywhere',
+      status: 'PUBLISHED' as const,
+      authorId: admin.id,
+      publishedAt: new Date(Date.now() - 8 * 60 * 60 * 1000), // 8 hours ago
+    },
+    {
+      title: 'Debugging at 2 AM 🌙',
+      content: 'That moment when you find the bug that\'s been haunting you for hours... it was a missing semicolon 😅 Time for bed!',
+      slug: 'debugging-2am',
+      status: 'PUBLISHED' as const,
+      authorId: user.id,
+      publishedAt: new Date(Date.now() - 12 * 60 * 60 * 1000), // 12 hours ago
+    },
+    {
+      title: 'Startup life is wild 🎢',
+      content: 'From idea to MVP in 2 weeks. Sleep is optional, coffee is mandatory, and the adrenaline is real! Building something people love is worth it 💪 #startup #hustle',
+      slug: 'startup-life-wild',
+      status: 'PUBLISHED' as const,
+      authorId: admin.id,
+      publishedAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
+    },
+    {
+      title: 'Learning never stops 📚',
+      content: 'Just finished a course on system design. The more you learn, the more you realize how much you don\'t know. And that\'s beautiful! #learning #growth',
+      slug: 'learning-never-stops',
+      status: 'PUBLISHED' as const,
+      authorId: user.id,
+      publishedAt: new Date(Date.now() - 36 * 60 * 60 * 1000), // 1.5 days ago
+    },
+    {
+      title: 'Productivity hack 💡',
+      content: 'Pomodoro technique + lo-fi music + distraction-free environment = coding flow state achieved! What\'s your secret productivity weapon? #productivity #tips',
+      slug: 'productivity-hack',
+      status: 'PUBLISHED' as const,
+      authorId: admin.id,
+      publishedAt: new Date(Date.now() - 48 * 60 * 60 * 1000), // 2 days ago
     },
   ];
 
-  for (const project of projects) {
-    await prisma.project.upsert({
-      where: { slug: project.slug },
+  // Create posts in database
+  const createdPosts = [];
+  for (const post of posts) {
+    const createdPost = await prisma.post.upsert({
+      where: { slug: post.slug },
       update: {},
-      create: project,
+      create: post,
     });
+    createdPosts.push(createdPost);
   }
 
-  console.log('✅ Sample projects created');
+  console.log('✅ Sample posts created');
+
+  // Add categories and tags to posts
+  const techCategory = await prisma.category.findUnique({ where: { slug: 'tech' } });
+  const lifestyleCategory = await prisma.category.findUnique({ where: { slug: 'lifestyle' } });
+  const newsCategory = await prisma.category.findUnique({ where: { slug: 'news' } });
+
+  const codingTag = await prisma.tag.findUnique({ where: { slug: 'coding' } });
+  const motivationTag = await prisma.tag.findUnique({ where: { slug: 'motivation' } });
+  const reactTag = await prisma.tag.findUnique({ where: { slug: 'react' } });
+  const aiTag = await prisma.tag.findUnique({ where: { slug: 'ai' } });
+  const startupTag = await prisma.tag.findUnique({ where: { slug: 'startup' } });
+  const productivityTag = await prisma.tag.findUnique({ where: { slug: 'productivity' } });
+  const learningTag = await prisma.tag.findUnique({ where: { slug: 'learning' } });
+
+  // Associate posts with categories and tags
+  const postCategoryMappings = [
+    { postSlug: 'shipped-new-feature', categoryId: techCategory?.id },
+    { postSlug: 'coffee-and-code', categoryId: lifestyleCategory?.id },
+    { postSlug: 'react-19-amazing', categoryId: techCategory?.id },
+    { postSlug: 'ai-everywhere', categoryId: newsCategory?.id },
+    { postSlug: 'debugging-2am', categoryId: lifestyleCategory?.id },
+    { postSlug: 'startup-life-wild', categoryId: newsCategory?.id },
+    { postSlug: 'learning-never-stops', categoryId: lifestyleCategory?.id },
+    { postSlug: 'productivity-hack', categoryId: lifestyleCategory?.id },
+  ];
+
+  for (const mapping of postCategoryMappings) {
+    const post = createdPosts.find(p => p.slug === mapping.postSlug);
+    if (post && mapping.categoryId) {
+      await prisma.postCategory.upsert({
+        where: {
+          postId_categoryId: {
+            postId: post.id,
+            categoryId: mapping.categoryId,
+          },
+        },
+        update: {},
+        create: {
+          postId: post.id,
+          categoryId: mapping.categoryId,
+        },
+      });
+    }
+  }
+
+  const postTagMappings = [
+    { postSlug: 'shipped-new-feature', tagIds: [codingTag?.id] },
+    { postSlug: 'coffee-and-code', tagIds: [motivationTag?.id] },
+    { postSlug: 'react-19-amazing', tagIds: [reactTag?.id, codingTag?.id] },
+    { postSlug: 'ai-everywhere', tagIds: [aiTag?.id] },
+    { postSlug: 'debugging-2am', tagIds: [codingTag?.id] },
+    { postSlug: 'startup-life-wild', tagIds: [startupTag?.id, motivationTag?.id] },
+    { postSlug: 'learning-never-stops', tagIds: [learningTag?.id] },
+    { postSlug: 'productivity-hack', tagIds: [productivityTag?.id] },
+  ];
+
+  for (const mapping of postTagMappings) {
+    const post = createdPosts.find(p => p.slug === mapping.postSlug);
+    if (post) {
+      for (const tagId of mapping.tagIds) {
+        if (tagId) {
+          await prisma.postTag.upsert({
+            where: {
+              postId_tagId: {
+                postId: post.id,
+                tagId: tagId,
+              },
+            },
+            update: {},
+            create: {
+              postId: post.id,
+              tagId: tagId,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  console.log('✅ Post categories and tags assigned');
 
   // Create settings
   const settings = [
