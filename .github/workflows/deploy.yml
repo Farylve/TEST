@@ -1,4 +1,4 @@
-name: Deploy to VPS
+name: Docker Deploy to VPS
 
 on:
   push:
@@ -6,131 +6,158 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_SERVER: ${{ github.repository }}-server
+  IMAGE_NAME_CLIENT: ${{ github.repository }}-client
+
 jobs:
-  build-client:
+  build-and-push:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
       with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: client/package-lock.json
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Install client dependencies
-      run: |
-        cd client
-        npm ci
-
-    - name: Build client
-      run: |
-        cd client
-        npm run build
-
-    - name: Cache client build
-      uses: actions/cache@v3
+    - name: Extract metadata for server
+      id: meta-server
+      uses: docker/metadata-action@v5
       with:
-        path: client/.next
-        key: ${{ runner.os }}-client-build-${{ hashFiles('client/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-client-build-
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SERVER }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
 
-    - name: Upload client build artifacts
-      uses: actions/upload-artifact@v4
+    - name: Extract metadata for client
+      id: meta-client
+      uses: docker/metadata-action@v5
       with:
-        name: client-build
-        path: |
-          client/.next
-          client/package.json
-          client/package-lock.json
-          client/ecosystem.config.js
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_CLIENT }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
 
-  build-server:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - name: Build and push server image
+      uses: docker/build-push-action@v5
       with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: server/package-lock.json
+        context: ./server
+        push: true
+        tags: ${{ steps.meta-server.outputs.tags }}
+        labels: ${{ steps.meta-server.outputs.labels }}
 
-    - name: Install server dependencies
-      run: |
-        cd server
-        npm ci
-
-    - name: Build server
-      run: |
-        cd server
-        npm run build
-
-    - name: Cache server build
-      uses: actions/cache@v3
+    - name: Build and push client image
+      uses: docker/build-push-action@v5
       with:
-        path: server/dist
-        key: ${{ runner.os }}-server-build-${{ hashFiles('server/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-server-build-
+        context: ./client
+        push: true
+        tags: ${{ steps.meta-client.outputs.tags }}
+        labels: ${{ steps.meta-client.outputs.labels }}
 
-    - name: Create server .env file
+    - name: Create deployment files
       run: |
-        cd server
-        cat > .env << EOF
-        NODE_ENV=production
-        PORT=3001
-        DATABASE_URL=${{ secrets.DATABASE_URL }}
-        JWT_SECRET=${{ secrets.JWT_SECRET }}
-        JWT_EXPIRES_IN=15m
-        JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
-        JWT_REFRESH_EXPIRES_IN=7d
-        CLIENT_URL=${{ secrets.CLIENT_URL }}
-        ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS }}
-        BCRYPT_ROUNDS=12
-        SESSION_SECRET=${{ secrets.SESSION_SECRET }}
-        LOG_LEVEL=info
+        # Create docker-compose for production
+        cat > docker-compose.prod.yml << EOF
+        version: '3.8'
+        services:
+          postgres:
+            image: postgres:15-alpine
+            container_name: portfolio-postgres
+            restart: unless-stopped
+            environment:
+              POSTGRES_DB: \${POSTGRES_DB}
+              POSTGRES_USER: \${POSTGRES_USER}
+              POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
+            volumes:
+              - postgres_data:/var/lib/postgresql/data
+            networks:
+              - portfolio-network
+            healthcheck:
+              test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER} -d \${POSTGRES_DB}"]
+              interval: 10s
+              timeout: 5s
+              retries: 5
+        
+          server:
+            image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SERVER }}:latest
+            container_name: portfolio-server
+            restart: unless-stopped
+            environment:
+              NODE_ENV: production
+              PORT: 5000
+              DATABASE_URL: postgresql://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@postgres:5432/\${POSTGRES_DB}?schema=public
+              JWT_SECRET: \${JWT_SECRET}
+              CORS_ORIGIN: \${CORS_ORIGIN}
+            ports:
+              - "5000:5000"
+            depends_on:
+              postgres:
+                condition: service_healthy
+            networks:
+              - portfolio-network
+            volumes:
+              - server_uploads:/app/uploads
+              - server_logs:/app/logs
+        
+          client:
+            image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_CLIENT }}:latest
+            container_name: portfolio-client
+            restart: unless-stopped
+            environment:
+              NODE_ENV: production
+              NEXT_PUBLIC_API_URL: \${NEXT_PUBLIC_API_URL}
+              PORT: 3000
+            ports:
+              - "3000:3000"
+            depends_on:
+              - server
+            networks:
+              - portfolio-network
+        
+        volumes:
+          postgres_data:
+          server_uploads:
+          server_logs:
+        
+        networks:
+          portfolio-network:
+            driver: bridge
         EOF
 
-    - name: Upload server build artifacts
+    - name: Upload deployment files
       uses: actions/upload-artifact@v4
       with:
-        name: server-build
+        name: deployment-files
         path: |
-          server/dist
-          server/package.json
-          server/package-lock.json
-          server/prisma
-          server/.env
-          server/ecosystem.config.js
+          docker-compose.prod.yml
+          .env.example
 
   deploy:
-    needs: [build-client, build-server]
+    needs: [build-and-push]
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
 
     steps:
-    - name: Download client artifacts
+    - name: Download deployment files
       uses: actions/download-artifact@v4
       with:
-        name: client-build
-        path: client/
+        name: deployment-files
+        path: ./
 
-    - name: Download server artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: server-build
-        path: server/
-
-    - name: Create deployment archive
-      run: |
-        tar -czf deployment.tar.gz client/ server/
-
-    - name: SSH Deploy
+    - name: Deploy to server
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.HOST }}
@@ -138,61 +165,40 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         passphrase: ${{ secrets.SSH_PASSPHRASE }}
         script: |
-          cd /var/www/nextjs
-          # Backup current deployment
-          if [ -d "current" ]; then
-            mv current backup-$(date +%Y%m%d-%H%M%S) || true
+          cd /var/www/portfolio
+          
+          # Create backup
+          if [ -f "docker-compose.yml" ]; then
+            cp docker-compose.yml docker-compose.backup-$(date +%Y%m%d-%H%M%S).yml
           fi
-          mkdir -p current
+          
+          # Login to GitHub Container Registry
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # Pull latest images
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SERVER }}:latest
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_CLIENT }}:latest
+          
+          # Stop existing containers
+          docker-compose down || true
+          
+          # Start new containers
+          docker-compose -f docker-compose.prod.yml up -d
+          
+          # Run database migrations
+          docker-compose -f docker-compose.prod.yml exec -T server npx prisma migrate deploy || true
+          
+          # Cleanup old images
+          docker image prune -f
+          
+          echo "Deployment completed successfully!"
 
-    - name: Copy files to server
+    - name: Copy deployment files to server
       uses: appleboy/scp-action@master
       with:
         host: ${{ secrets.HOST }}
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         passphrase: ${{ secrets.SSH_PASSPHRASE }}
-        source: "deployment.tar.gz"
-        target: "/var/www/nextjs/"
-
-    - name: Extract and deploy
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        passphrase: ${{ secrets.SSH_PASSPHRASE }}
-        script: |
-          cd /var/www/nextjs
-          tar -xzf deployment.tar.gz -C current/
-          
-          # Deploy client
-          if [ -d "current/client" ]; then
-            cd current/client
-            npm install --production
-            pm2 delete nextjs 2>/dev/null || echo "No existing nextjs process found"
-            pm2 start ecosystem.config.js
-            cd ../..
-          else
-            echo "Client directory not found"
-          fi
-          
-          # Deploy server
-          if [ -d "current/server" ]; then
-            cd current/server
-            npm install --production
-            npx prisma migrate deploy
-            npx prisma db seed
-            pm2 delete portfolio-server 2>/dev/null || echo "No existing portfolio-server process found"
-            pm2 start ecosystem.config.js
-            cd ../..
-          else
-            echo "Server directory not found"
-          fi
-          
-          pm2 save
-          pm2 startup
-          
-          # Cleanup
-          rm -f deployment.tar.gz
-          echo "Deployment completed successfully!"
+        source: "docker-compose.prod.yml,.env.example"
+        target: "/var/www/portfolio/"
