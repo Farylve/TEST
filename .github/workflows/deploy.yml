@@ -45,6 +45,7 @@ jobs:
         host: ${{ secrets.HOST }}
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
+        passphrase: ${{ secrets.SSH_PASSPHRASE }}
         port: ${{ secrets.PORT || 22 }}
         script: |
           cd ${{ secrets.SERVER_PATH || '/opt/portfolio' }}
@@ -61,6 +62,7 @@ jobs:
         host: ${{ secrets.HOST }}
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
+        passphrase: ${{ secrets.SSH_PASSPHRASE }}
         port: ${{ secrets.PORT || 22 }}
         script: |
           sleep 30
