@@ -66,5 +66,5 @@ jobs:
         port: ${{ secrets.PORT || 22 }}
         script: |
           sleep 30
-          docker exec portfolio-backend-prod curl -f http://localhost:5000/api/health || exit 1
+          curl -f http://localhost:5000/api/health || exit 1
           echo "Deployment successful!"
