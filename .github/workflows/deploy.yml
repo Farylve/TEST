@@ -29,14 +29,14 @@ jobs:
 
     - name: Build and test
       run: |
-        docker-compose -f docker-compose.yml build
-        docker-compose -f docker-compose.yml up -d
+        docker compose -f docker-compose.yml build
+        docker compose -f docker-compose.yml up -d
         sleep 30
         # Test backend health
         curl -f http://localhost:5000/api/health || exit 1
         # Test frontend
         curl -f http://localhost:3000 || exit 1
-        docker-compose -f docker-compose.yml down
+        docker compose -f docker-compose.yml down
 
     - name: Deploy to server
       if: github.event_name == 'push'
@@ -49,9 +49,9 @@ jobs:
         script: |
           cd ${{ secrets.SERVER_PATH || '/opt/portfolio' }}
           git pull origin main
-          docker-compose -f docker-compose.prod.yml down
-          docker-compose -f docker-compose.prod.yml build --no-cache
-          docker-compose -f docker-compose.prod.yml up -d
+          docker compose -f docker-compose.prod.yml down
+          docker compose -f docker-compose.prod.yml build --no-cache
+          docker compose -f docker-compose.prod.yml up -d
           docker system prune -f
 
     - name: Health check after deployment
