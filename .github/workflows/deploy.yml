@@ -1,204 +1,65 @@
-name: Docker Deploy to VPS
+name: Deploy to Server
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME_SERVER: ${{ github.repository }}-server
-  IMAGE_NAME_CLIENT: ${{ github.repository }}-client
+    branches: [ main, master ]
 
 jobs:
-  build-and-push:
+  deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     
     steps:
-    - name: Checkout repository
+    - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Log in to Container Registry
+    - name: Setup Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub (optional)
+      if: github.event_name == 'push'
       uses: docker/login-action@v3
       with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Extract metadata for server
-      id: meta-server
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SERVER }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
-
-    - name: Extract metadata for client
-      id: meta-client
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_CLIENT }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
-
-    - name: Build and push server image
-      uses: docker/build-push-action@v5
-      with:
-        context: ./server
-        push: true
-        tags: ${{ steps.meta-server.outputs.tags }}
-        labels: ${{ steps.meta-server.outputs.labels }}
-
-    - name: Build and push client image
-      uses: docker/build-push-action@v5
-      with:
-        context: ./client
-        push: true
-        tags: ${{ steps.meta-client.outputs.tags }}
-        labels: ${{ steps.meta-client.outputs.labels }}
-
-    - name: Create deployment files
+    - name: Build and test
       run: |
-        # Create docker-compose for production
-        cat > docker-compose.prod.yml << EOF
-        version: '3.8'
-        services:
-          postgres:
-            image: postgres:15-alpine
-            container_name: portfolio-postgres
-            restart: unless-stopped
-            environment:
-              POSTGRES_DB: \${POSTGRES_DB}
-              POSTGRES_USER: \${POSTGRES_USER}
-              POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
-            volumes:
-              - postgres_data:/var/lib/postgresql/data
-            networks:
-              - portfolio-network
-            healthcheck:
-              test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER} -d \${POSTGRES_DB}"]
-              interval: 10s
-              timeout: 5s
-              retries: 5
-        
-          server:
-            image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SERVER }}:latest
-            container_name: portfolio-server
-            restart: unless-stopped
-            environment:
-              NODE_ENV: production
-              PORT: 5000
-              DATABASE_URL: postgresql://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@postgres:5432/\${POSTGRES_DB}?schema=public
-              JWT_SECRET: \${JWT_SECRET}
-              CORS_ORIGIN: \${CORS_ORIGIN}
-            ports:
-              - "5000:5000"
-            depends_on:
-              postgres:
-                condition: service_healthy
-            networks:
-              - portfolio-network
-            volumes:
-              - server_uploads:/app/uploads
-              - server_logs:/app/logs
-        
-          client:
-            image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_CLIENT }}:latest
-            container_name: portfolio-client
-            restart: unless-stopped
-            environment:
-              NODE_ENV: production
-              NEXT_PUBLIC_API_URL: \${NEXT_PUBLIC_API_URL}
-              PORT: 3000
-            ports:
-              - "3000:3000"
-            depends_on:
-              - server
-            networks:
-              - portfolio-network
-        
-        volumes:
-          postgres_data:
-          server_uploads:
-          server_logs:
-        
-        networks:
-          portfolio-network:
-            driver: bridge
-        EOF
-
-    - name: Upload deployment files
-      uses: actions/upload-artifact@v4
-      with:
-        name: deployment-files
-        path: |
-          docker-compose.prod.yml
-          .env.example
-
-  deploy:
-    needs: [build-and-push]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-    - name: Download deployment files
-      uses: actions/download-artifact@v4
-      with:
-        name: deployment-files
-        path: ./
+        docker-compose -f docker-compose.yml build
+        docker-compose -f docker-compose.yml up -d
+        sleep 30
+        # Test backend health
+        curl -f http://localhost:5000/api/health || exit 1
+        # Test frontend
+        curl -f http://localhost:3000 || exit 1
+        docker-compose -f docker-compose.yml down
 
     - name: Deploy to server
-      uses: appleboy/ssh-action@master
+      if: github.event_name == 'push'
+      uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        passphrase: ${{ secrets.SSH_PASSPHRASE }}
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        port: ${{ secrets.SERVER_PORT || 22 }}
         script: |
-          cd /var/www/portfolio
-          
-          # Create backup
-          if [ -f "docker-compose.yml" ]; then
-            cp docker-compose.yml docker-compose.backup-$(date +%Y%m%d-%H%M%S).yml
-          fi
-          
-          # Login to GitHub Container Registry
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          
-          # Pull latest images
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SERVER }}:latest
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_CLIENT }}:latest
-          
-          # Stop existing containers
-          docker-compose down || true
-          
-          # Start new containers
+          cd ${{ secrets.SERVER_PATH || '/opt/portfolio' }}
+          git pull origin main
+          docker-compose -f docker-compose.prod.yml down
+          docker-compose -f docker-compose.prod.yml build --no-cache
           docker-compose -f docker-compose.prod.yml up -d
-          
-          # Run database migrations
-          docker-compose -f docker-compose.prod.yml exec -T server npx prisma migrate deploy || true
-          
-          # Cleanup old images
-          docker image prune -f
-          
-          echo "Deployment completed successfully!"
+          docker system prune -f
 
-    - name: Copy deployment files to server
-      uses: appleboy/scp-action@master
+    - name: Health check after deployment
+      if: github.event_name == 'push'
+      uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        passphrase: ${{ secrets.SSH_PASSPHRASE }}
-        source: "docker-compose.prod.yml,.env.example"
-        target: "/var/www/portfolio/"
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        port: ${{ secrets.SERVER_PORT || 22 }}
+        script: |
+          sleep 30
+          curl -f http://localhost:5000/api/health || exit 1
+          echo "Deployment successful!"
