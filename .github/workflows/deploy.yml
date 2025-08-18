@@ -52,12 +52,24 @@ jobs:
           docker --version || { echo "Docker not found!"; exit 1; }
           docker compose version || { echo "Docker Compose not found!"; exit 1; }
           
-          cd ${{ secrets.SERVER_PATH || '/opt/portfolio' }}
-          echo "Pulling latest code..."
-          git pull origin main
+          # Create project directory if it doesn't exist
+          PROJECT_DIR="${{ secrets.SERVER_PATH || '/opt/portfolio' }}"
+          echo "Setting up project directory: $PROJECT_DIR"
+          sudo mkdir -p "$PROJECT_DIR"
+          cd "$PROJECT_DIR"
+          
+          # Clone or update repository
+          if [ -d ".git" ]; then
+            echo "Updating existing repository..."
+            git fetch origin
+            git reset --hard origin/main
+          else
+            echo "Cloning repository..."
+            git clone ${{ github.server_url }}/${{ github.repository }} .
+          fi
           
           echo "Stopping existing containers..."
-          docker compose -f docker-compose.prod.yml down
+          docker compose -f docker-compose.prod.yml down || true
           
           echo "Building new images..."
           docker compose -f docker-compose.prod.yml build --no-cache
@@ -84,7 +96,9 @@ jobs:
         passphrase: ${{ secrets.SSH_PASSPHRASE }}
         port: ${{ secrets.PORT || 22 }}
         script: |
-          cd ${{ secrets.SERVER_PATH || '/opt/portfolio' }}
+          PROJECT_DIR="${{ secrets.SERVER_PATH || '/opt/portfolio' }}"
+          cd "$PROJECT_DIR"
+          
           echo "Waiting for containers to start..."
           sleep 60
           
