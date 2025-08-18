@@ -1,134 +1,154 @@
-# Portfolio Application
+# Portfolio Project
 
-Полнофункциональное приложение с фронтендом на Next.js и бэкендом на Node.js + Express, готовое для развертывания через Docker и GitHub Actions.
+This is a full-stack portfolio application with a Node.js backend and Next.js frontend.
 
-## Структура проекта
+## Project Structure
 
 ```
-.
-├── front/                 # Next.js фронтенд
-├── back/                  # Node.js + Express бэкенд
-├── .github/workflows/     # GitHub Actions
-├── docker-compose.yml     # Локальная разработка
-├── docker-compose.prod.yml # Продакшен
-├── nginx.conf            # Nginx конфигурация
-└── README.md
+├── back/                    # Backend (Node.js + Express)
+├── front/                   # Frontend (Next.js)
+├── .github/workflows/       # GitHub Actions workflows
+├── docker-compose.yml       # Development Docker configuration
+├── docker-compose.prod.yml  # Production Docker configuration
+├── check-deployment.sh      # Deployment diagnostic script
+└── README.md               # This file
 ```
 
-## Локальная разработка
+## Development
 
-### Требования
-- Docker и Docker Compose
-- Node.js 18+ (для локальной разработки без Docker)
+### Prerequisites
+- Node.js 18+
+- Docker and Docker Compose
 
-### Запуск с Docker
+### Local Development
+
+1. Clone the repository
+2. Run with Docker Compose:
+   ```bash
+   docker compose up -d
+   ```
+
+3. Access the application:
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:5000
+
+### Manual Development
+
+1. Backend:
+   ```bash
+   cd back
+   npm install
+   npm run dev
+   ```
+
+2. Frontend:
+   ```bash
+   cd front
+   npm install
+   npm run dev
+   ```
+
+## Production Deployment
+
+The application is automatically deployed using GitHub Actions when code is pushed to the main branch.
+
+### Server Requirements
+- Docker and Docker Compose
+- Git
+- SSH access
+- Ports 3000 and 5000 available
+
+### GitHub Secrets
+Configure the following secrets in your GitHub repository:
+- `HOST`: Server IP address
+- `USERNAME`: SSH username
+- `SSH_PRIVATE_KEY`: SSH private key
+- `SSH_PASSPHRASE`: SSH key passphrase (if any)
+- `PORT`: SSH port (default: 22)
+- `SERVER_PATH`: Path to project on server (default: /opt/portfolio)
+
+### Manual Deployment on Server
+
+1. Clone the repository:
+   ```bash
+   git clone <your-repo-url> /opt/portfolio
+   cd /opt/portfolio
+   ```
+
+2. Deploy with production configuration:
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d
+   ```
+
+3. Check deployment status:
+   ```bash
+   chmod +x check-deployment.sh
+   ./check-deployment.sh
+   ```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **"Failed to connect to localhost port 5000"**
+   - Check if backend container is running: `docker compose -f docker-compose.prod.yml ps`
+   - Check backend logs: `docker compose -f docker-compose.prod.yml logs backend`
+   - Verify port is not blocked by firewall
+
+2. **Containers not starting**
+   - Check Docker installation: `docker --version`
+   - Check available disk space: `df -h`
+   - Check container logs for errors
+
+3. **GitHub Actions deployment fails**
+   - Verify all secrets are configured correctly
+   - Check server has Docker and Docker Compose installed
+   - Ensure SSH key has proper permissions
+   - Check server logs during deployment
+
+### Diagnostic Commands
 
 ```bash
-# Клонировать репозиторий
-git clone <your-repo-url>
-cd portfolio
+# Check container status
+docker compose -f docker-compose.prod.yml ps
 
-# Запустить приложение
-docker-compose up --build
-```
+# View logs
+docker compose -f docker-compose.prod.yml logs backend
+docker compose -f docker-compose.prod.yml logs frontend
 
-Приложение будет доступно:
-- Фронтенд: http://localhost:3000
-- Бэкенд API: http://localhost:5000
+# Test API manually
+curl http://localhost:5000/api/health
 
-### Запуск без Docker
+# Check port usage
+netstat -tlnp | grep :5000
+netstat -tlnp | grep :3000
 
-```bash
-# Бэкенд
-cd back
-npm install
-npm run dev
+# Restart services
+docker compose -f docker-compose.prod.yml restart
 
-# Фронтенд (в новом терминале)
-cd front
-npm install
-npm run dev
-```
-
-## Развертывание на сервере
-
-### Настройка GitHub Secrets
-
-Добавьте следующие секреты в настройках GitHub репозитория:
-
-- `SERVER_HOST` - IP адрес или домен сервера
-- `SERVER_USER` - пользователь для SSH подключения
-- `SERVER_SSH_KEY` - приватный SSH ключ
-- `SERVER_PORT` - порт SSH (по умолчанию 22)
-- `SERVER_PATH` - путь к проекту на сервере (по умолчанию /opt/portfolio)
-- `DOCKER_USERNAME` - (опционально) логин Docker Hub
-- `DOCKER_PASSWORD` - (опционально) пароль Docker Hub
-
-### Подготовка сервера
-
-```bash
-# Установить Docker и Docker Compose
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo usermod -aG docker $USER
-
-# Клонировать репозиторий
-sudo mkdir -p /opt/portfolio
-sudo chown $USER:$USER /opt/portfolio
-cd /opt/portfolio
-git clone <your-repo-url> .
-```
-
-### Автоматическое развертывание
-
-При пуше в ветку `main` или `master` GitHub Actions автоматически:
-1. Соберет и протестирует приложение
-2. Подключится к серверу по SSH
-3. Обновит код
-4. Пересоберет и запустит контейнеры
-5. Проверит работоспособность
-
-### Ручное развертывание
-
-```bash
-# На сервере
-cd /opt/portfolio
-git pull origin main
-docker-compose -f docker-compose.prod.yml down
-docker-compose -f docker-compose.prod.yml up --build -d
+# Full rebuild
+docker compose -f docker-compose.prod.yml down
+docker compose -f docker-compose.prod.yml build --no-cache
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 ## API Endpoints
 
-- `GET /` - Главная страница API
-- `GET /api/health` - Проверка работоспособности
-- `GET /api/info` - Информация о сервере
-- `GET /api/test` - Тестовые данные
+- `GET /api/health` - Health check endpoint
+- `GET /api/test` - Test endpoint
 
-## Мониторинг
+## Technologies Used
 
-```bash
-# Просмотр логов
-docker-compose logs -f
+- **Backend**: Node.js, Express
+- **Frontend**: Next.js, React
+- **Containerization**: Docker, Docker Compose
+- **CI/CD**: GitHub Actions
+- **Deployment**: SSH-based deployment
 
-# Статус контейнеров
-docker-compose ps
+## Health Checks
 
-# Проверка здоровья
-curl http://localhost:5000/api/health
-```
-
-## Troubleshooting
-
-### Проблемы с CORS
-Убедитесь, что `CORS_ORIGIN` в бэкенде соответствует URL фронтенда.
-
-### Проблемы с подключением
-Проверьте, что `NEXT_PUBLIC_API_URL` в фронтенде указывает на правильный адрес бэкенда.
-
-### Проблемы с Docker
-```bash
-# Очистка Docker
-docker system prune -a
-docker-compose down --volumes
-```
+The application includes comprehensive health checks:
+- Backend container health check every 15 seconds
+- GitHub Actions deployment verification
+- Automatic retry logic for failed deployments
+- Detailed logging for troubleshooting

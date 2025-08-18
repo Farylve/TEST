@@ -48,11 +48,30 @@ jobs:
         passphrase: ${{ secrets.SSH_PASSPHRASE }}
         port: ${{ secrets.PORT || 22 }}
         script: |
+          echo "Checking Docker installation..."
+          docker --version || { echo "Docker not found!"; exit 1; }
+          docker compose version || { echo "Docker Compose not found!"; exit 1; }
+          
           cd ${{ secrets.SERVER_PATH || '/opt/portfolio' }}
+          echo "Pulling latest code..."
           git pull origin main
+          
+          echo "Stopping existing containers..."
           docker compose -f docker-compose.prod.yml down
+          
+          echo "Building new images..."
           docker compose -f docker-compose.prod.yml build --no-cache
+          
+          echo "Starting containers..."
           docker compose -f docker-compose.prod.yml up -d
+          
+          echo "Waiting for containers to initialize..."
+          sleep 30
+          
+          echo "Checking container status..."
+          docker compose -f docker-compose.prod.yml ps
+          
+          echo "Cleaning up unused Docker resources..."
           docker system prune -f
 
     - name: Health check after deployment
@@ -65,6 +84,34 @@ jobs:
         passphrase: ${{ secrets.SSH_PASSPHRASE }}
         port: ${{ secrets.PORT || 22 }}
         script: |
-          sleep 30
-          curl -f http://localhost:5000/api/health || exit 1
+          cd ${{ secrets.SERVER_PATH || '/opt/portfolio' }}
+          echo "Waiting for containers to start..."
+          sleep 60
+          
+          echo "Checking container status..."
+          docker compose -f docker-compose.prod.yml ps
+          
+          echo "Checking if backend container is healthy..."
+          for i in {1..10}; do
+            if docker compose -f docker-compose.prod.yml ps --filter "status=running" | grep portfolio-backend-prod; then
+              echo "Backend container is running, testing health endpoint..."
+              if curl -f http://localhost:5000/api/health; then
+                echo "Health check passed!"
+                break
+              else
+                echo "Health check failed, attempt $i/10"
+              fi
+            else
+              echo "Backend container not running yet, attempt $i/10"
+            fi
+            sleep 10
+          done
+          
+          # Final health check
+          curl -f http://localhost:5000/api/health || {
+            echo "Final health check failed. Container logs:"
+            docker compose -f docker-compose.prod.yml logs backend
+            exit 1
+          }
+          
           echo "Deployment successful!"
