@@ -22,6 +22,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Health check endpoint for deployment
+app.get('/healthz', (req, res) => {
+  res.status(200).send('OK');
+});
+
 app.get('/api/info', (req, res) => {
   res.json({
     name: 'Portfolio Backend',
