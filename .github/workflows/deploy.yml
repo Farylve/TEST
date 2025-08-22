@@ -1,179 +1,76 @@
-name: Deploy to Server
+name: Deploy to SpaceWeb
 
 on:
-    push:
-        branches: [main, master]
-    pull_request:
-        branches: [main, master]
+  push:
+    branches: [ "main" ]
 
 jobs:
-    deploy:
-        runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-latest
 
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Setup Docker Buildx
-              uses: docker/setup-buildx-action@v3
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -euo pipefail
+            export DEBIAN_FRONTEND=noninteractive
 
-            - name: Login to Docker Hub (optional)
-              if: github.event_name == 'push' && env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != ''
-              uses: docker/login-action@v3
-              with:
-                  username: ${{ secrets.DOCKER_USERNAME }}
-                  password: ${{ secrets.DOCKER_PASSWORD }}
-              env:
-                  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-                  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+            if ! command -v docker >/dev/null 2>&1; then
+              curl -fsSL https://get.docker.com | sh
+            fi
 
-            - name: Build and test
-              run: |
-                  docker compose -f docker-compose.yml build
-                  docker compose -f docker-compose.yml up -d
-                  sleep 30
-                  # Test backend health
-                  curl -f http://localhost:5000/api/health || exit 1
-                  # Test frontend
-                  curl -f http://localhost:3000 || exit 1
-                  docker compose -f docker-compose.yml down
+            if ! docker compose version >/dev/null 2>&1; then
+              sudo apt-get update -y
+              sudo apt-get install -y docker-compose-plugin
+            fi
 
-            - name: Deploy to server
-              if: github.event_name == 'push'
-              uses: appleboy/ssh-action@v1.0.3
-              with:
-                  host: ${{ secrets.HOST }}
-                  username: ${{ secrets.USERNAME }}
-                  key: ${{ secrets.SSH_PRIVATE_KEY }}
-                  passphrase: ${{ secrets.SSH_PASSPHRASE }}
-                  port: ${{ secrets.PORT || 22 }}
-                  script: |
-                      set -e  # Exit on any error
-                      
-                      echo "=== DEPLOYMENT STARTED ==="
-                      echo "Current user: $(whoami)"
-                      echo "Current directory: $(pwd)"
-                      echo "Available disk space:"
-                      df -h
-                      
-                      echo "=== CHECKING DOCKER INSTALLATION ==="
-                      if ! command -v docker &> /dev/null; then
-                          echo "ERROR: Docker not found!"
-                          echo "Please install Docker on the server first."
-                          exit 1
-                      fi
-                      docker --version
-                      
-                      if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-                          echo "ERROR: Docker Compose not found!"
-                          echo "Please install Docker Compose on the server first."
-                          exit 1
-                      fi
-                      docker compose version || docker-compose --version
-                      
-                      echo "=== CHECKING DOCKER DAEMON ==="
-                      if ! docker info &> /dev/null; then
-                          echo "ERROR: Docker daemon is not running!"
-                          echo "Please start Docker daemon on the server."
-                          exit 1
-                      fi
-                      echo "Docker daemon is running."
+            sudo mkdir -p /opt/portfolio
+            sudo chown -R "$USER":"$USER" /opt/portfolio
 
-                      # Create project directory if it doesn't exist
-                      PROJECT_DIR="${{ secrets.SERVER_PATH || '/opt/portfolio' }}"
-                      echo "=== SETTING UP PROJECT DIRECTORY: $PROJECT_DIR ==="
-                      
-                      if [ ! -d "$PROJECT_DIR" ]; then
-                          echo "Creating project directory..."
-                          sudo mkdir -p "$PROJECT_DIR" || { echo "ERROR: Failed to create directory $PROJECT_DIR"; exit 1; }
-                      fi
-                      
-                      # Change ownership to current user if needed
-                      sudo chown -R $(whoami):$(whoami) "$PROJECT_DIR" || echo "Warning: Could not change ownership"
-                      cd "$PROJECT_DIR" || { echo "ERROR: Cannot access directory $PROJECT_DIR"; exit 1; }
-                      
-                      echo "=== REPOSITORY SETUP ==="
-                      # Clone or update repository
-                      if [ -d ".git" ]; then
-                        echo "Updating existing repository..."
-                        git fetch origin || { echo "ERROR: Failed to fetch from origin"; exit 1; }
-                        git reset --hard origin/main || { echo "ERROR: Failed to reset to origin/main"; exit 1; }
-                      else
-                        echo "Cloning repository..."
-                        git clone ${{ github.server_url }}/${{ github.repository }} . || { echo "ERROR: Failed to clone repository"; exit 1; }
-                      fi
-                      
-                      echo "=== CHECKING REQUIRED FILES ==="
-                      if [ ! -f "docker-compose.prod.yml" ]; then
-                          echo "ERROR: docker-compose.prod.yml not found!"
-                          ls -la
-                          exit 1
-                      fi
-                      echo "docker-compose.prod.yml found."
+            if [ ! -d /opt/portfolio/.git ]; then
+              git clone https://github.com/Farylve/TEST.git /opt/portfolio
+            else
+              cd /opt/portfolio
+              git fetch --all
+              git reset --hard origin/main
+            fi
 
-                      echo "=== STOPPING EXISTING CONTAINERS ==="
-                      docker compose -f docker-compose.prod.yml down || echo "No containers to stop"
+            cd /opt/portfolio
+            docker compose -f docker-compose.prod.yml up -d --build
 
-                      echo "=== BUILDING NEW IMAGES ==="
-                      docker compose -f docker-compose.prod.yml build --no-cache || { echo "ERROR: Failed to build images"; exit 1; }
+            echo "Waiting for app to become healthy..."
+            for i in {1..60}; do
+              if curl -fsS http://localhost/healthz >/dev/null; then
+                echo "Healthy!"
+                exit 0
+              fi
+              sleep 2
+            done
 
-                      echo "=== STARTING CONTAINERS ==="
-                      docker compose -f docker-compose.prod.yml up -d || { echo "ERROR: Failed to start containers"; exit 1; }
+            echo "Health check failed"
+            docker compose ps
+            exit 1
 
-                      echo "=== WAITING FOR CONTAINERS TO INITIALIZE ==="
-                      sleep 30
+      - name: Install Node for E2E tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-                      echo "=== CHECKING CONTAINER STATUS ==="
-                      docker compose -f docker-compose.prod.yml ps
-                      
-                      echo "=== CHECKING CONTAINER LOGS ==="
-                      docker compose -f docker-compose.prod.yml logs --tail=20
+      - name: Install Playwright and deps
+        working-directory: ./front
+        run: |
+          npm ci
+          npx playwright install --with-deps
 
-                      echo "=== CLEANING UP UNUSED DOCKER RESOURCES ==="
-                      docker system prune -f || echo "Warning: Failed to clean up Docker resources"
-                      
-                      echo "=== DEPLOYMENT COMPLETED SUCCESSFULLY ==="
-
-            - name: Health check after deployment
-              if: github.event_name == 'push'
-              uses: appleboy/ssh-action@v1.0.3
-              with:
-                  host: ${{ secrets.HOST }}
-                  username: ${{ secrets.USERNAME }}
-                  key: ${{ secrets.SSH_PRIVATE_KEY }}
-                  passphrase: ${{ secrets.SSH_PASSPHRASE }}
-                  port: ${{ secrets.PORT || 22 }}
-                  script: |
-                      PROJECT_DIR="${{ secrets.SERVER_PATH || '/opt/portfolio' }}"
-                      cd "$PROJECT_DIR"
-
-                      echo "Waiting for containers to start..."
-                      sleep 60
-
-                      echo "Checking container status..."
-                      docker compose -f docker-compose.prod.yml ps
-
-                      echo "Checking if backend container is healthy..."
-                      for i in {1..10}; do
-                        if docker compose -f docker-compose.prod.yml ps --filter "status=running" | grep portfolio-backend-prod; then
-                          echo "Backend container is running, testing health endpoint..."
-                          if curl -f http://localhost:5000/api/health; then
-                            echo "Health check passed!"
-                            break
-                          else
-                            echo "Health check failed, attempt $i/10"
-                          fi
-                        else
-                          echo "Backend container not running yet, attempt $i/10"
-                        fi
-                        sleep 10
-                      done
-
-                      # Final health check
-                      curl -f http://localhost:5000/api/health || {
-                        echo "Final health check failed. Container logs:"
-                        docker compose -f docker-compose.prod.yml logs backend
-                        exit 1
-                      }
-
-                      echo "Deployment successful!"
+      - name: Run E2E tests against production
+        env:
+          BASE_URL: http://farylve.online
+        working-directory: ./front
+        run: npx playwright test
