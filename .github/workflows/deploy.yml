@@ -48,43 +48,91 @@ jobs:
                   passphrase: ${{ secrets.SSH_PASSPHRASE }}
                   port: ${{ secrets.PORT || 22 }}
                   script: |
-                      echo "Checking Docker installation..."
-                      docker --version || { echo "Docker not found!"; exit 1; }
-                      docker compose version || { echo "Docker Compose not found!"; exit 1; }
+                      set -e  # Exit on any error
+                      
+                      echo "=== DEPLOYMENT STARTED ==="
+                      echo "Current user: $(whoami)"
+                      echo "Current directory: $(pwd)"
+                      echo "Available disk space:"
+                      df -h
+                      
+                      echo "=== CHECKING DOCKER INSTALLATION ==="
+                      if ! command -v docker &> /dev/null; then
+                          echo "ERROR: Docker not found!"
+                          echo "Please install Docker on the server first."
+                          exit 1
+                      fi
+                      docker --version
+                      
+                      if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+                          echo "ERROR: Docker Compose not found!"
+                          echo "Please install Docker Compose on the server first."
+                          exit 1
+                      fi
+                      docker compose version || docker-compose --version
+                      
+                      echo "=== CHECKING DOCKER DAEMON ==="
+                      if ! docker info &> /dev/null; then
+                          echo "ERROR: Docker daemon is not running!"
+                          echo "Please start Docker daemon on the server."
+                          exit 1
+                      fi
+                      echo "Docker daemon is running."
 
                       # Create project directory if it doesn't exist
                       PROJECT_DIR="${{ secrets.SERVER_PATH || '/opt/portfolio' }}"
-                      echo "Setting up project directory: $PROJECT_DIR"
-                      sudo mkdir -p "$PROJECT_DIR"
-                      cd "$PROJECT_DIR"
-
+                      echo "=== SETTING UP PROJECT DIRECTORY: $PROJECT_DIR ==="
+                      
+                      if [ ! -d "$PROJECT_DIR" ]; then
+                          echo "Creating project directory..."
+                          sudo mkdir -p "$PROJECT_DIR" || { echo "ERROR: Failed to create directory $PROJECT_DIR"; exit 1; }
+                      fi
+                      
+                      # Change ownership to current user if needed
+                      sudo chown -R $(whoami):$(whoami) "$PROJECT_DIR" || echo "Warning: Could not change ownership"
+                      cd "$PROJECT_DIR" || { echo "ERROR: Cannot access directory $PROJECT_DIR"; exit 1; }
+                      
+                      echo "=== REPOSITORY SETUP ==="
                       # Clone or update repository
                       if [ -d ".git" ]; then
                         echo "Updating existing repository..."
-                        git fetch origin
-                        git reset --hard origin/main
+                        git fetch origin || { echo "ERROR: Failed to fetch from origin"; exit 1; }
+                        git reset --hard origin/main || { echo "ERROR: Failed to reset to origin/main"; exit 1; }
                       else
                         echo "Cloning repository..."
-                        git clone ${{ github.server_url }}/${{ github.repository }} .
+                        git clone ${{ github.server_url }}/${{ github.repository }} . || { echo "ERROR: Failed to clone repository"; exit 1; }
                       fi
+                      
+                      echo "=== CHECKING REQUIRED FILES ==="
+                      if [ ! -f "docker-compose.prod.yml" ]; then
+                          echo "ERROR: docker-compose.prod.yml not found!"
+                          ls -la
+                          exit 1
+                      fi
+                      echo "docker-compose.prod.yml found."
 
-                      echo "Stopping existing containers..."
-                      docker compose -f docker-compose.prod.yml down || true
+                      echo "=== STOPPING EXISTING CONTAINERS ==="
+                      docker compose -f docker-compose.prod.yml down || echo "No containers to stop"
 
-                      echo "Building new images..."
-                      docker compose -f docker-compose.prod.yml build --no-cache
+                      echo "=== BUILDING NEW IMAGES ==="
+                      docker compose -f docker-compose.prod.yml build --no-cache || { echo "ERROR: Failed to build images"; exit 1; }
 
-                      echo "Starting containers..."
-                      docker compose -f docker-compose.prod.yml up -d
+                      echo "=== STARTING CONTAINERS ==="
+                      docker compose -f docker-compose.prod.yml up -d || { echo "ERROR: Failed to start containers"; exit 1; }
 
-                      echo "Waiting for containers to initialize..."
+                      echo "=== WAITING FOR CONTAINERS TO INITIALIZE ==="
                       sleep 30
 
-                      echo "Checking container status..."
+                      echo "=== CHECKING CONTAINER STATUS ==="
                       docker compose -f docker-compose.prod.yml ps
+                      
+                      echo "=== CHECKING CONTAINER LOGS ==="
+                      docker compose -f docker-compose.prod.yml logs --tail=20
 
-                      echo "Cleaning up unused Docker resources..."
-                      docker system prune -f
+                      echo "=== CLEANING UP UNUSED DOCKER RESOURCES ==="
+                      docker system prune -f || echo "Warning: Failed to clean up Docker resources"
+                      
+                      echo "=== DEPLOYMENT COMPLETED SUCCESSFULLY ==="
 
             - name: Health check after deployment
               if: github.event_name == 'push'
