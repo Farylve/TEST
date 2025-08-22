@@ -22,6 +22,15 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Health endpoint for nginx proxy (without /api prefix)
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'Server is healthy',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Health check endpoint for deployment
 app.get('/healthz', (req, res) => {
   res.status(200).send('OK');
