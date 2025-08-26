@@ -3,6 +3,7 @@ name: Deploy to SpaceWeb
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -22,6 +23,11 @@ jobs:
             set -euo pipefail
             export DEBIAN_FRONTEND=noninteractive
 
+            if ! command -v curl >/dev/null 2>&1; then
+              sudo apt-get update -y
+              sudo apt-get install -y curl ca-certificates
+            fi
+
             if ! command -v docker >/dev/null 2>&1; then
               curl -fsSL https://get.docker.com | sh
             fi
@@ -29,6 +35,11 @@ jobs:
             if ! docker compose version >/dev/null 2>&1; then
               sudo apt-get update -y
               sudo apt-get install -y docker-compose-plugin
+            fi
+
+            if ! command -v git >/dev/null 2>&1; then
+              sudo apt-get update -y
+              sudo apt-get install -y git
             fi
 
             sudo mkdir -p /opt/portfolio
@@ -43,7 +54,7 @@ jobs:
             fi
 
             cd /opt/portfolio
-            docker compose -f docker-compose.prod.yml up -d --build
+            sudo docker compose -f docker-compose.prod.yml up -d --build
 
             echo "Waiting for app to become healthy..."
             for i in {1..60}; do
