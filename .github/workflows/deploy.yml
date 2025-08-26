@@ -1,87 +1,87 @@
 name: Deploy to SpaceWeb
 
 on:
-  push:
-    branches: [ "main" ]
-  workflow_dispatch:
+    push:
+        branches: ["main"]
+    workflow_dispatch:
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+    deploy:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
 
-      - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USER }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            set -euo pipefail
-            export DEBIAN_FRONTEND=noninteractive
+            - name: Deploy over SSH
+              uses: appleboy/ssh-action@v1.0.3
+              with:
+                  host: ${{ secrets.HOST }}
+                  username: ${{ secrets.USER }}
+                  key: ${{ secrets.PASSWORD }}
+                  script: |
+                      set -euo pipefail
+                      export DEBIAN_FRONTEND=noninteractive
 
-            if ! command -v curl >/dev/null 2>&1; then
-              sudo apt-get update -y
-              sudo apt-get install -y curl ca-certificates
-            fi
+                      if ! command -v curl >/dev/null 2>&1; then
+                        sudo apt-get update -y
+                        sudo apt-get install -y curl ca-certificates
+                      fi
 
-            if ! command -v docker >/dev/null 2>&1; then
-              curl -fsSL https://get.docker.com | sh
-            fi
+                      if ! command -v docker >/dev/null 2>&1; then
+                        curl -fsSL https://get.docker.com | sh
+                      fi
 
-            if ! docker compose version >/dev/null 2>&1; then
-              sudo apt-get update -y
-              sudo apt-get install -y docker-compose-plugin
-            fi
+                      if ! docker compose version >/dev/null 2>&1; then
+                        sudo apt-get update -y
+                        sudo apt-get install -y docker-compose-plugin
+                      fi
 
-            if ! command -v git >/dev/null 2>&1; then
-              sudo apt-get update -y
-              sudo apt-get install -y git
-            fi
+                      if ! command -v git >/dev/null 2>&1; then
+                        sudo apt-get update -y
+                        sudo apt-get install -y git
+                      fi
 
-            sudo mkdir -p /opt/portfolio
-            sudo chown -R "$USER":"$USER" /opt/portfolio
+                      sudo mkdir -p /opt/portfolio
+                      sudo chown -R "$USER":"$USER" /opt/portfolio
 
-            if [ ! -d /opt/portfolio/.git ]; then
-              git clone https://github.com/Farylve/TEST.git /opt/portfolio
-            else
-              cd /opt/portfolio
-              git fetch --all
-              git reset --hard origin/main
-            fi
+                      if [ ! -d /opt/portfolio/.git ]; then
+                        git clone https://github.com/Farylve/TEST.git /opt/portfolio
+                      else
+                        cd /opt/portfolio
+                        git fetch --all
+                        git reset --hard origin/main
+                      fi
 
-            cd /opt/portfolio
-            sudo docker compose -f docker-compose.prod.yml up -d --build
+                      cd /opt/portfolio
+                      sudo docker compose -f docker-compose.prod.yml up -d --build
 
-            echo "Waiting for app to become healthy..."
-            for i in {1..60}; do
-              if curl -fsS http://localhost/healthz >/dev/null; then
-                echo "Healthy!"
-                exit 0
-              fi
-              sleep 2
-            done
+                      echo "Waiting for app to become healthy..."
+                      for i in {1..60}; do
+                        if curl -fsS http://localhost/healthz >/dev/null; then
+                          echo "Healthy!"
+                          exit 0
+                        fi
+                        sleep 2
+                      done
 
-            echo "Health check failed"
-            docker compose ps
-            exit 1
+                      echo "Health check failed"
+                      docker compose ps
+                      exit 1
 
-      - name: Install Node for E2E tests
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+            - name: Install Node for E2E tests
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
 
-      - name: Install Playwright and deps
-        working-directory: ./front
-        run: |
-          npm ci
-          npx playwright install --with-deps
+            - name: Install Playwright and deps
+              working-directory: ./front
+              run: |
+                  npm ci
+                  npx playwright install --with-deps
 
-      - name: Run E2E tests against production
-        env:
-          BASE_URL: http://farylve.online
-        working-directory: ./front
-        run: npx playwright test
+            - name: Run E2E tests against production
+              env:
+                  BASE_URL: http://farylve.online
+              working-directory: ./front
+              run: npx playwright test
