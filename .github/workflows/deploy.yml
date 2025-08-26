@@ -20,7 +20,7 @@ jobs:
                   host: ${{ secrets.HOST }}
                   username: ${{ secrets.USER }}
                   key: ${{ secrets.SSH_KEY }}
-                  local: ./
+                  local: front
                   remote: /opt/portfolio
                   recursive: true
                   verbose: true
