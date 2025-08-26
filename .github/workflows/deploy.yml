@@ -13,24 +13,11 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            # Копируем весь проект на сервер
-            - name: Copy project to remote server
-              uses: garygrossgarten/github-action-scp@release
-              with:
-                  host: ${{ secrets.HOST }}
-                  username: ${{ secrets.USER }}
-                  key: ${{ secrets.SSH_KEY }}
-                  local: front
-                  remote: /opt/portfolio
-                  recursive: true
-                  verbose: true
-
-            # Выполняем деплой-команды на сервере
-            - name: Deploy on remote server
+            - name: Deploy over SSH
               uses: appleboy/ssh-action@v1.0.3
               with:
                   host: ${{ secrets.HOST }}
-                  username: ${{ secrets.USER }}
+                  username: ${{ secrets.USERNAME }}
                   key: ${{ secrets.SSH_KEY }}
                   script: |
                       set -euo pipefail
@@ -48,6 +35,22 @@ jobs:
                       if ! docker compose version >/dev/null 2>&1; then
                         sudo apt-get update -y
                         sudo apt-get install -y docker-compose-plugin
+                      fi
+
+                      if ! command -v git >/dev/null 2>&1; then
+                        sudo apt-get update -y
+                        sudo apt-get install -y git
+                      fi
+
+                      sudo mkdir -p /opt/portfolio
+                      sudo chown -R "$USER":"$USER" /opt/portfolio
+
+                      if [ ! -d /opt/portfolio/.git ]; then
+                        git clone https://github.com/Farylve/TEST.git /opt/portfolio
+                      else
+                        cd /opt/portfolio
+                        git fetch --all
+                        git reset --hard origin/main
                       fi
 
                       cd /opt/portfolio
