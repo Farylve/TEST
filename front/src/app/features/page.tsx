@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Navigation from '@/components/Navigation';
 
 export default function FeaturesPage() {
   const [activeFeature, setActiveFeature] = useState(0);
+  const router = useRouter();
 
   const features = [
     {
@@ -159,7 +161,7 @@ export default function FeaturesPage() {
                   API тестирование и управление задачами
                 </p>
                 <button 
-                  onClick={() => window.location.href = '/'}
+                  onClick={() => router.push('/')}
                   className="btn-primary text-sm"
                 >
                   Перейти
@@ -173,7 +175,7 @@ export default function FeaturesPage() {
                   Подробная информация об архитектуре
                 </p>
                 <button 
-                  onClick={() => window.location.href = '/about'}
+                  onClick={() => router.push('/about')}
                   className="btn-primary text-sm"
                 >
                   Изучить
@@ -187,7 +189,7 @@ export default function FeaturesPage() {
                   Информация для связи с разработчиком
                 </p>
                 <button 
-                  onClick={() => window.location.href = '/contact'}
+                  onClick={() => router.push('/contact')}
                   className="btn-primary text-sm"
                 >
                   Связаться

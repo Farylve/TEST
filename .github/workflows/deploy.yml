@@ -1,72 +1,92 @@
+# GitHub Actions workflow для автоматического деплоя на SpaceWeb хостинг
 name: Deploy to SpaceWeb
 
+# Триггеры запуска workflow
 on:
     push:
-        branches: ["main"]
-    workflow_dispatch:
+        branches: ["main"]  # Запуск при пуше в main ветку
+    workflow_dispatch:      # Ручной запуск через GitHub UI
 
 jobs:
     deploy:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-latest  # Использование Ubuntu runner
 
         steps:
+            # Шаг 1: Получение исходного кода из репозитория
             - name: Checkout
               uses: actions/checkout@v4
 
+            # Шаг 2: Деплой через SSH на удаленный сервер
             - name: Deploy over SSH
               uses: appleboy/ssh-action@v1.0.3
               with:
-                  host: ${{ secrets.HOST }}
-                  username: ${{ secrets.USERNAME }}
-                  key: ${{ secrets.SSH_KEY }}
-                  command_timeout: 20m
+                  host: ${{ secrets.HOST }}        # IP адрес сервера из секретов
+                  username: ${{ secrets.USERNAME }} # Имя пользователя из секретов
+                  key: ${{ secrets.SSH_KEY }}      # SSH ключ из секретов
+                  command_timeout: 20m             # Таймаут выполнения команд
                   script: |
+                      # Настройка строгого режима bash и неинтерактивного режима
                       set -euo pipefail
                       export DEBIAN_FRONTEND=noninteractive
 
+                      # Проверка и установка curl если отсутствует
                       if ! command -v curl >/dev/null 2>&1; then
                         sudo apt-get update -y
                         sudo apt-get install -y curl ca-certificates
                       fi
 
+                      # Проверка и установка Docker если отсутствует
                       if ! command -v docker >/dev/null 2>&1; then
                         curl -fsSL https://get.docker.com | sh
                       fi
 
+                      # Проверка и установка Docker Compose если отсутствует
                       if ! docker compose version >/dev/null 2>&1; then
                         sudo apt-get update -y
                         sudo apt-get install -y docker-compose-plugin
                       fi
 
+                      # Проверка и установка Git если отсутствует
                       if ! command -v git >/dev/null 2>&1; then
                         sudo apt-get update -y
                         sudo apt-get install -y git
                       fi
 
+                      # Создание директории для проекта и настройка прав
                       sudo mkdir -p /opt/portfolio
                       sudo chown -R "$USER":"$USER" /opt/portfolio
 
+                      # Клонирование или обновление репозитория
                       if [ ! -d /opt/portfolio/.git ]; then
+                        # Первоначальное клонирование
                         git clone https://github.com/Farylve/TEST.git /opt/portfolio
                       else
+                        # Обновление существующего репозитория
                         cd /opt/portfolio
                         git fetch --all
                         git reset --hard origin/main
                       fi
 
+                      # Переход в директорию проекта и деплой
                       cd /opt/portfolio
+                      # Остановка существующих контейнеров
                       sudo docker compose -f docker-compose.prod.yml down
+                      # Запуск новых контейнеров с пересборкой
                       sudo docker compose -f docker-compose.prod.yml up -d --build --force-recreate
 
+                      # Ожидание запуска контейнеров
                       echo "Waiting for containers to start..."
                       sleep 15
                       
+                      # Проверка статуса контейнеров
                       echo "Checking container status..."
                       docker compose -f docker-compose.prod.yml ps
                       
+                      # Просмотр логов для диагностики
                       echo "Checking logs..."
                       docker compose -f docker-compose.prod.yml logs --tail=20
                       
+                      # Проверка здоровья приложения
                       echo "Waiting for app to become healthy..."
                       for i in {1..30}; do
                         if curl -fsS http://localhost/healthz >/dev/null 2>&1; then
@@ -77,9 +97,11 @@ jobs:
                         sleep 5
                       done
                       
+                      # Финальная проверка статуса
                       echo "Final container status:"
                       docker compose -f docker-compose.prod.yml ps
                       
+                      # Проверка успешности деплоя
                       if ! curl -fsS http://localhost/healthz >/dev/null 2>&1; then
                         echo "Health check failed after 30 attempts"
                         echo "Container logs:"
@@ -89,19 +111,22 @@ jobs:
                       
                       echo "Deployment successful!"
 
+            # Шаг 3: Установка Node.js для E2E тестов
             - name: Install Node for E2E tests
               uses: actions/setup-node@v4
               with:
-                  node-version: "20"
+                  node-version: "20"  # Версия Node.js
 
+            # Шаг 4: Установка Playwright и зависимостей
             - name: Install Playwright and deps
-              working-directory: ./front
+              working-directory: ./front  # Работа в директории фронтенда
               run: |
-                  npm ci
-                  npx playwright install --with-deps
+                  npm ci  # Чистая установка зависимостей
+                  npx playwright install --with-deps  # Установка браузеров для тестов
 
+            # Шаг 5: Запуск E2E тестов против продакшн версии
             - name: Run E2E tests against production
               env:
-                  BASE_URL: http://farylve.online
+                  BASE_URL: http://farylve.online  # URL продакшн сайта
               working-directory: ./front
-              run: npx playwright test
+              run: npx playwright test  # Запуск автотестов
