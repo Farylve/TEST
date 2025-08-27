@@ -14,6 +14,13 @@ const pool = new Pool({
 // Initialize database
 async function initDatabase() {
   try {
+    console.log('Attempting to connect to database...');
+    console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Not set');
+    
+    // Test connection first
+    await pool.query('SELECT NOW()');
+    console.log('Database connection successful');
+    
     await pool.query(`
       CREATE TABLE IF NOT EXISTS tasks (
         id SERIAL PRIMARY KEY,
@@ -25,6 +32,8 @@ async function initDatabase() {
     console.log('Database initialized successfully');
   } catch (err) {
     console.error('Database initialization error:', err);
+    console.error('Error details:', err.message);
+    throw err; // Re-throw to prevent server start if DB fails
   }
 }
 
@@ -98,14 +107,42 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+// Database health check endpoint
+app.get('/api/db-health', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW() as current_time, version() as postgres_version');
+    res.json({
+      status: 'OK',
+      message: 'Database connection healthy',
+      data: result.rows[0],
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('Database health check failed:', err);
+    res.status(500).json({
+      status: 'ERROR',
+      message: 'Database connection failed',
+      error: err.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Tasks API endpoints
 app.get('/api/tasks', async (req, res) => {
   try {
+    console.log('Fetching tasks from database...');
     const result = await pool.query('SELECT * FROM tasks ORDER BY created_at DESC');
+    console.log(`Found ${result.rows.length} tasks`);
     res.json(result.rows);
   } catch (err) {
     console.error('Error fetching tasks:', err);
-    res.status(500).json({ error: 'Failed to fetch tasks' });
+    console.error('Error details:', err.message);
+    console.error('Error code:', err.code);
+    res.status(500).json({ 
+      error: 'Failed to fetch tasks',
+      details: err.message 
+    });
   }
 });
 
