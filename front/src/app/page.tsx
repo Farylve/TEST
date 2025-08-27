@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import ServerStatusPanel from '@/components/ServerStatusPanel';
+import TaskManager from '@/components/TaskManager';
 
 interface ApiResponse {
   message?: string;
@@ -58,6 +60,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
+      <ServerStatusPanel />
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
@@ -67,6 +70,8 @@ export default function Home() {
             Frontend (Next.js) + Backend (Node.js/Express) Test
           </p>
         </div>
+
+        <TaskManager />
 
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <h2 className="text-2xl font-semibold text-gray-800 mb-4">
