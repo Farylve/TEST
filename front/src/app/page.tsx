@@ -53,7 +53,7 @@ export default function Home() {
     { path: '/api/health', label: 'Health Check' },
     { path: '/api/info', label: 'Server Info' },
     { path: '/api/test', label: 'Test Data' },
-    { path: '/', label: 'Root' }
+    { path: '/api', label: 'Root' }
   ];
 
   return (

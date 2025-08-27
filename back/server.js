@@ -14,6 +14,10 @@ app.get('/', (req, res) => {
   res.json({ message: 'Portfolio Backend API is running!' });
 });
 
+app.get('/api', (req, res) => {
+  res.json({ message: 'Portfolio Backend API is running!' });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
