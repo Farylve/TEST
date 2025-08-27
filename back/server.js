@@ -28,11 +28,23 @@ async function initDatabase() {
   }
 }
 
-initDatabase();
-
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Initialize database and start server
+async function startServer() {
+  await initDatabase();
+  
+  app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+  });
+}
+
+startServer().catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});
 
 // Routes
 app.get('/', (req, res) => {
@@ -162,11 +174,6 @@ app.use((err, req, res, next) => {
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({ error: 'Route not found' });
-});
-
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 module.exports = app;
