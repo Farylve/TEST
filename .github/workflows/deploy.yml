@@ -19,6 +19,7 @@ jobs:
                   host: ${{ secrets.HOST }}
                   username: ${{ secrets.USERNAME }}
                   key: ${{ secrets.SSH_KEY }}
+                  command_timeout: 20m
                   script: |
                       set -euo pipefail
                       export DEBIAN_FRONTEND=noninteractive
@@ -56,18 +57,36 @@ jobs:
                       cd /opt/portfolio
                       sudo docker compose -f docker-compose.prod.yml up -d --build
 
-                      echo "Waiting for app to become healthy..."
-                      for i in {1..60}; do
-                        if curl -fsS http://localhost/healthz >/dev/null; then
-                          echo "Healthy!"
-                          exit 0
-                        fi
-                        sleep 2
-                      done
-
-                      echo "Health check failed"
+                      echo "Waiting for containers to start..."
+                      sleep 10
+                      
+                      echo "Checking container status..."
                       docker compose ps
-                      exit 1
+                      
+                      echo "Checking logs..."
+                      docker compose logs --tail=20
+                      
+                      echo "Waiting for app to become healthy..."
+                      for i in {1..30}; do
+                        if curl -fsS http://localhost/healthz >/dev/null 2>&1; then
+                          echo "Health check passed!"
+                          break
+                        fi
+                        echo "Attempt $i/30 failed, waiting..."
+                        sleep 5
+                      done
+                      
+                      echo "Final container status:"
+                      docker compose ps
+                      
+                      if ! curl -fsS http://localhost/healthz >/dev/null 2>&1; then
+                        echo "Health check failed after 30 attempts"
+                        echo "Container logs:"
+                        docker compose logs --tail=50
+                        exit 1
+                      fi
+                      
+                      echo "Deployment successful!"
 
             - name: Install Node for E2E tests
               uses: actions/setup-node@v4
