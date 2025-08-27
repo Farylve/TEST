@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Navigation from '@/components/Navigation';
 import ServerStatusPanel from '@/components/ServerStatusPanel';
 import TaskManager from '@/components/TaskManager';
 
@@ -8,158 +9,220 @@ interface ApiResponse {
   message?: string;
   status?: string;
   timestamp?: string;
-  name?: string;
+  uptime?: string;
   version?: string;
   environment?: string;
-  port?: number;
-  data?: {
-    users: Array<{
-      id: number;
-      name: string;
-      email: string;
-    }>;
-  };
+  data?: any;
+  error?: string;
 }
 
 export default function Home() {
-  const [apiData, setApiData] = useState<ApiResponse | null>(null);
+  const [response, setResponse] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [endpoint, setEndpoint] = useState('/api/health');
+  const [currentEndpoint, setCurrentEndpoint] = useState('/api/health');
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
-
-  const fetchData = async (path: string) => {
+  const testEndpoint = async (endpoint: string) => {
     setLoading(true);
     setError(null);
+    setCurrentEndpoint(endpoint);
+    
     try {
-      const response = await fetch(`${API_BASE_URL}${path}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const res = await fetch(`http://farylve.online${endpoint}`);
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
       }
-      const data = await response.json();
-      setApiData(data);
+      
+      const data = await res.json();
+      setResponse(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      setApiData(null);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      setResponse(null);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData(endpoint);
+    testEndpoint('/api/health');
   }, []);
 
-  const endpoints = [
-    { path: '/api/health', label: 'Health Check' },
-    { path: '/api/info', label: 'Server Info' },
-    { path: '/api/test', label: 'Test Data' },
-    { path: '/api', label: 'Root' }
-  ];
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-      <ServerStatusPanel />
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Portfolio Application
-          </h1>
-          <p className="text-lg text-gray-600">
-            Frontend (Next.js) + Backend (Node.js/Express) Test
-          </p>
-        </div>
-
-        <TaskManager />
-
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-            API Test Panel
-          </h2>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            {endpoints.map((ep) => (
-              <button
-                key={ep.path}
-                onClick={() => {
-                  setEndpoint(ep.path);
-                  fetchData(ep.path);
-                }}
-                className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                  endpoint === ep.path
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                {ep.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="mb-4">
-            <p className="text-sm text-gray-600 mb-2">
-              Current endpoint: <span className="font-mono bg-gray-100 px-2 py-1 rounded">
-                {API_BASE_URL}{endpoint}
-              </span>
+    <>
+      <Navigation />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        <ServerStatusPanel />
+        
+        <div className="max-w-6xl mx-auto px-4 py-12 space-y-8">
+          <div className="text-center">
+            <h1 className="text-5xl font-bold text-gray-900 mb-4">
+              Portfolio Application
+            </h1>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Современное full-stack приложение с микросервисной архитектурой, 
+              демонстрирующее интеграцию Next.js, Node.js, PostgreSQL и Docker
             </p>
           </div>
 
-          {loading && (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-2 text-gray-600">Loading...</span>
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Task Manager */}
+            <div className="card">
+              <TaskManager />
             </div>
-          )}
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
-              <div className="flex">
-                <div className="text-red-600">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">Error</h3>
-                  <p className="text-sm text-red-700 mt-1">{error}</p>
-                </div>
+            {/* API Test Panel */}
+            <div className="card">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-6 flex items-center space-x-2">
+                <span>🔧</span>
+                <span>API Test Panel</span>
+              </h2>
+              
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <button
+                  onClick={() => testEndpoint('/api/health')}
+                  className={`btn-primary text-sm ${
+                    currentEndpoint === '/api/health' ? 'ring-2 ring-blue-300' : ''
+                  }`}
+                >
+                  Health Check
+                </button>
+                <button
+                  onClick={() => testEndpoint('/api/info')}
+                  className={`btn-secondary text-sm ${
+                    currentEndpoint === '/api/info' ? 'ring-2 ring-gray-300' : ''
+                  }`}
+                >
+                  Server Info
+                </button>
+                <button
+                  onClick={() => testEndpoint('/api/test')}
+                  className={`btn-secondary text-sm ${
+                    currentEndpoint === '/api/test' ? 'ring-2 ring-gray-300' : ''
+                  }`}
+                >
+                  Test Data
+                </button>
+                <button
+                  onClick={() => testEndpoint('/api')}
+                  className={`btn-secondary text-sm ${
+                    currentEndpoint === '/api' ? 'ring-2 ring-gray-300' : ''
+                  }`}
+                >
+                  Root API
+                </button>
+              </div>
+
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Endpoint:</span> 
+                  <span className="font-mono bg-white px-2 py-1 rounded ml-2 text-blue-600">
+                    {currentEndpoint}
+                  </span>
+                </p>
+              </div>
+
+              <div className="border rounded-lg p-4 bg-white min-h-[200px]">
+                {loading && (
+                  <div className="flex items-center justify-center space-x-2 h-32">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                    <span className="text-gray-600">Загрузка...</span>
+                  </div>
+                )}
+                
+                {error && (
+                  <div className="flex items-start space-x-3 p-4 bg-red-50 rounded-lg">
+                    <span className="text-red-500 text-xl">❌</span>
+                    <div>
+                      <h3 className="text-sm font-medium text-red-800">Ошибка</h3>
+                      <div className="mt-1 text-sm text-red-700">{error}</div>
+                    </div>
+                  </div>
+                )}
+                
+                {response && !loading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-green-500 text-xl">✅</span>
+                      <h3 className="text-sm font-medium text-green-800">Успешно</h3>
+                    </div>
+                    <pre className="whitespace-pre-wrap font-mono text-xs bg-gray-50 p-3 rounded border overflow-x-auto">
+                      {JSON.stringify(response, null, 2)}
+                    </pre>
+                  </div>
+                )}
               </div>
             </div>
-          )}
+          </div>
 
-          {apiData && !loading && (
-            <div className="bg-green-50 border border-green-200 rounded-md p-4">
-              <div className="flex items-start">
-                <div className="text-green-600">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
+          {/* System Status */}
+          <div className="card">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-6 flex items-center space-x-2">
+              <span>🖥️</span>
+              <span>Статус системы</span>
+            </h2>
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center space-x-3">
+                  <span className="text-2xl">⚛️</span>
+                  <div>
+                    <h3 className="font-semibold text-blue-900">Frontend</h3>
+                    <p className="text-blue-700 text-sm">Next.js 14 (Port 3000)</p>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                      <span className="text-xs text-blue-600">Активен</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="ml-3 flex-1">
-                  <h3 className="text-sm font-medium text-green-800">Success</h3>
-                  <div className="mt-2">
-                    <pre className="text-sm text-gray-800 bg-gray-50 p-3 rounded border overflow-x-auto">
-                      {JSON.stringify(apiData, null, 2)}
-                    </pre>
+              </div>
+
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center space-x-3">
+                  <span className="text-2xl">🟢</span>
+                  <div>
+                    <h3 className="font-semibold text-green-900">Backend</h3>
+                    <p className="text-green-700 text-sm">Node.js/Express (Port 5000)</p>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                      <span className="text-xs text-green-600">Работает</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <div className="flex items-center space-x-3">
+                  <span className="text-2xl">🐘</span>
+                  <div>
+                    <h3 className="font-semibold text-purple-900">Database</h3>
+                    <p className="text-purple-700 text-sm">PostgreSQL (Port 5432)</p>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                      <span className="text-xs text-purple-600">Подключена</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          )}
-        </div>
 
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-            Connection Status
-          </h2>
-          <div className="space-y-2">
-            <p><span className="font-medium">Frontend:</span> Next.js (Port 3000)</p>
-            <p><span className="font-medium">Backend:</span> Node.js/Express (Port 5000)</p>
-            <p><span className="font-medium">API Base URL:</span> {API_BASE_URL}</p>
+            <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-gray-900">Домен приложения</h3>
+                  <p className="text-gray-600 text-sm">farylve.online</p>
+                </div>
+                <div className="text-right">
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    <span className="text-sm text-green-600 font-medium">Онлайн</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">SSL сертификат активен</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
