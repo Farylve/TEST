@@ -11,29 +11,38 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-// Initialize database
-async function initDatabase() {
-  try {
-    console.log('Attempting to connect to database...');
-    console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Not set');
-    
-    // Test connection first
-    await pool.query('SELECT NOW()');
-    console.log('Database connection successful');
-    
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS tasks (
-        id SERIAL PRIMARY KEY,
-        text TEXT NOT NULL,
-        completed BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('Database initialized successfully');
-  } catch (err) {
-    console.error('Database initialization error:', err);
-    console.error('Error details:', err.message);
-    throw err; // Re-throw to prevent server start if DB fails
+// Initialize database with retry logic
+async function initDatabase(retries = 5, delay = 5000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      console.log(`Attempting to connect to database... (attempt ${i + 1}/${retries})`);
+      console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Not set');
+      
+      // Test connection first
+      await pool.query('SELECT NOW()');
+      console.log('Database connection successful');
+      
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS tasks (
+          id SERIAL PRIMARY KEY,
+          text TEXT NOT NULL,
+          completed BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('Database initialized successfully');
+      return; // Success, exit retry loop
+    } catch (err) {
+      console.error(`Database initialization error (attempt ${i + 1}/${retries}):`, err.message);
+      
+      if (i === retries - 1) {
+        console.error('All database connection attempts failed');
+        throw err; // Re-throw on final attempt
+      }
+      
+      console.log(`Retrying in ${delay/1000} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
   }
 }
 
